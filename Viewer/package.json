@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "sync-data": "node scripts/sync-crawler-data.js",
+    "predev": "npm run sync-data",
+    "prebuild": "npm run sync-data"
   },
   "dependencies": {
     "next": "16.1.1",

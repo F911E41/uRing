@@ -1,12 +1,13 @@
 // src/core/lib/api.ts
 
 /**
- * Dummy API Fetcher
- * Simulates API responses using local JSON data
+ * API Fetcher for Crawler Results
+ * Fetches notice data aggregated from the Crawler's results
  */
 
 export interface Notice {
     campus: string;
+    college?: string;
     department_id: string;
     department_name: string;
     board_id: string;
@@ -23,25 +24,15 @@ export interface ApiResponse {
 }
 
 /**
- * Simulates fetching notices from an API
- * Currently uses local JSON files (resp1.json, resp2.json, resp3.json)
- * @param responseId - Which response file to fetch (1, 2, or 3)
- * @returns Promise with API response containing notices
+ * Fetches all notices from the aggregated notices.json file
+ * @returns Promise with API response containing all notices
  */
-export async function fetchNotices(
-    responseId: number = 1
-): Promise<ApiResponse> {
+export async function fetchAllNotices(): Promise<ApiResponse> {
     try {
-        // Simulate network delay
-        await new Promise((resolve) => setTimeout(resolve, 300));
-
-        const validIds = [1, 2, 3, 4, 5, 6];
-        const id = validIds.includes(responseId) ? responseId : 1;
-
-        const response = await fetch(`/data/resp${id}.json`);
+        const response = await fetch('/data/notices.json');
 
         if (!response.ok) {
-            throw new Error(`Failed to fetch resp${id}.json`);
+            throw new Error('Failed to fetch notices.json');
         }
 
         const data: Notice[] = await response.json();
@@ -59,47 +50,6 @@ export async function fetchNotices(
             data: [],
             status: 'error',
             message: `Error fetching notices: ${errorMessage}`,
-        };
-    }
-}
-
-/**
- * Fetches all available notices from all data sources
- * @returns Promise with combined API response
- */
-export async function fetchAllNotices(): Promise<ApiResponse> {
-    try {
-        const [resp1, resp2, resp3, resp4, resp5, resp6] = await Promise.all([
-            fetchNotices(1),
-            fetchNotices(2),
-            fetchNotices(3),
-            fetchNotices(4),
-            fetchNotices(5),
-            fetchNotices(6),
-        ]);
-
-        const allData = [
-            ...resp1.data,
-            ...resp2.data,
-            ...resp3.data,
-            ...resp4.data,
-            ...resp5.data,
-            ...resp6.data,
-        ];
-
-        return {
-            data: allData,
-            status: 'success',
-            message: `Successfully fetched ${allData.length} notices from all sources`,
-        };
-    } catch (error) {
-        const errorMessage =
-            error instanceof Error ? error.message : 'Unknown error';
-
-        return {
-            data: [],
-            status: 'error',
-            message: `Error fetching all notices: ${errorMessage}`,
         };
     }
 }
