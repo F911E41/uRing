@@ -1,0 +1,113 @@
+[
+    {
+        "campus": "신촌캠퍼스",
+        "departments": [
+            {
+                "id": "yonsei_main",
+                "name": "연세대학교",
+                "boards": [
+                    {
+                        "id": "notice",
+                        "name": "공지사항",
+                        "url": "https://www.yonsei.ac.kr/bbs/sc/58/artclList.do",
+                        "row_selector": "li.board-noti",
+                        "title_selector": "div.title strong",
+                        "date_selector": "div.date-area",
+                        "attr_name": "href",
+                        "link_selector": "a"
+                    }
+                ]
+            },
+            {
+                "id": "yonsei_ee",
+                "name": "전기전자공학부",
+                "boards": [
+                    {
+                        "id": "academic",
+                        "name": "학사공지",
+                        "url": "https://ee.yonsei.ac.kr/ee/community/academic_notice.do",
+                        "row_selector": "tr:has(a.c-board-title)",
+                        "title_selector": "a.c-board-title",
+                        "date_selector": "td:nth-last-child(1)",
+                        "attr_name": "href"
+                    }
+                ]
+            },
+            {
+                "id": "yonsei_me",
+                "name": "기계공학부",
+                "boards": [
+                    {
+                        "id": "notice",
+                        "name": "공지사항",
+                        "url": "https://me.yonsei.ac.kr/me/community/notice.do",
+                        "row_selector": "tr:has(a.c-board-title)",
+                        "title_selector": "a.c-board-title",
+                        "date_selector": "td:nth-last-child(1)",
+                        "attr_name": "href"
+                    },
+                    {
+                        "id": "notice2",
+                        "name": "취업/장학",
+                        "url": "https://me.yonsei.ac.kr/me/community/notice2.do",
+                        "row_selector": "tr:has(a.c-board-title)",
+                        "title_selector": "a.c-board-title",
+                        "date_selector": "td:nth-last-child(1)",
+                        "attr_name": "href"
+                    }
+                ]
+            },
+            {
+                "id": "yonsei_cs",
+                "name": "첨단컴퓨팅학부",
+                "boards": [
+                    {
+                        "id": "faculty",
+                        "name": "공지사항",
+                        "url": "https://cs.yonsei.ac.kr/csai/board/facultyBoard.do",
+                        "row_selector": "tr:has(a.c-board-title)",
+                        "title_selector": "a.c-board-title",
+                        "date_selector": "td:nth-last-child(1)",
+                        "attr_name": "href"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "campus": "미래캠퍼스",
+        "departments": [
+            {
+                "id": "yonsei_mirae_main",
+                "name": "연세대학교(미래)",
+                "boards": [
+                    {
+                        "id": "notice",
+                        "name": "공지사항",
+                        "url": "https://mirae.yonsei.ac.kr/wj/1415/subview.do",
+                        "row_selector": "li.board-noti",
+                        "title_selector": "div.title strong",
+                        "date_selector": "div.date-area",
+                        "attr_name": "href",
+                        "link_selector": "a"
+                    }
+                ]
+            },
+            {
+                "id": "yonsei_sw",
+                "name": "소프트웨어학부",
+                "boards": [
+                    {
+                        "id": "notice",
+                        "name": "공지사항",
+                        "url": "https://sw.yonsei.ac.kr/notice",
+                        "row_selector": "li.xe-list-board-list--item:not(.xe-list-board-list--header)",
+                        "title_selector": "a.xe-list-board-list__title-link",
+                        "date_selector": "div.xe-list-board-list__created_at",
+                        "attr_name": "href"
+                    }
+                ]
+            }
+        ]
+    }
+]

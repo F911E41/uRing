@@ -1,0 +1,54 @@
+# uRing Crawler Configuration
+
+[crawler]
+# User agent string for HTTP requests
+user_agent = "Mozilla/5.0 (compatible; uRing Crawler/0.1)"
+
+# Request timeout in seconds
+timeout_secs = 30
+
+# Delay between requests in milliseconds (to be polite to servers)
+request_delay_ms = 100
+
+# Maximum concurrent requests (0 = sequential)
+max_concurrent = 0
+
+[paths]
+# Path to site map configuration
+site_map = "data/siteMap.json"
+
+# Path to output directory (will create department subdirectories with board JSON files)
+output = "data/result"
+
+[cleaning]
+# Patterns to remove from titles
+title_remove_patterns = ["첨부파일", "공지 "]
+
+# Patterns to remove from dates
+date_remove_patterns = ["작성일"]
+
+# Date replacement patterns (from -> to)
+[[cleaning.date_replacements]]
+from = ". "
+to = "."
+
+[output]
+# Enable console output
+console_enabled = false
+
+# Enable JSON file output
+json_enabled = true
+
+# Pretty print JSON output
+json_pretty = true
+
+# Console output format for notices
+# Available placeholders: {dept_name}, {board_name}, {title}, {date}, {link}
+notice_format = "📌 [{dept_name}:{board_name}] {title}\n   📅 {date}\n   🔗 {link}"
+
+[logging]
+# Log level: error, warn, info, debug, trace
+level = "info"
+
+# Show progress indicators
+show_progress = true

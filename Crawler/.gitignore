@@ -1,0 +1,8 @@
+# .gitignore for `Crawler` project
+
+# Ignore build artifacts
+Cargo.lock
+target/
+
+# Ignore data files
+/data/result/**/*.json

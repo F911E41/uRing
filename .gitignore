@@ -1,0 +1,4 @@
+# .gitignore for `uRing` project
+
+# Ignore system files
+.DS_Store
