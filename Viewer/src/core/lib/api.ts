@@ -1,3 +1,5 @@
+// src/core/lib/api.ts
+
 /**
  * Dummy API Fetcher
  * Simulates API responses using local JSON data
