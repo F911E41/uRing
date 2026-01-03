@@ -51,8 +51,8 @@ def detect_cms_and_get_selectors(soup, url):
             "attr_name": "href",
         }
 
-    # Detect by presence of XE/Rhymix specific classes or URL patterns
-    if "xe" in html_str or "rhymix" in html_str or "mid=" in url:
+    # Detect by presence of XE board classes
+    if "xe-list-board" in html_str or "xe_board" in html_str:
         return {
             "row_selector": "li.xe-list-board-list--item:not(.xe-list-board-list--header)",
             "title_selector": "a.xe-list-board-list__title-link",
@@ -130,19 +130,8 @@ def discover_boards(dept_info, dept_url):
 def extract_boards_from_soup(target_soup, dept_url, dept_info):
     boards = []
 
-    # Detect CMS and get selectors
-    cms_selectors = detect_cms_and_get_selectors(target_soup, dept_url)
-
-    if cms_selectors is None:
-        manual_review_needed.append(
-            {
-                "campus": dept_info["campus"],
-                "name": dept_info["name"],
-                "url": dept_url,
-                "reason": "Unknown CMS Structure",
-            }
-        )
-        return []
+    # Determine the basic CMS characteristics based on the main page information
+    default_cms_selectors = detect_cms_and_get_selectors(target_soup, dept_url)
 
     # Extract board links
     links = target_soup.find_all("a", href=True)
@@ -160,15 +149,27 @@ def extract_boards_from_soup(target_soup, dept_url, dept_info):
         if full_url in seen_urls or "javascript" in href or "#" in href:
             continue
 
-        # Ignore if subdomain is different
+        # Domain check
         link_domain = urlparse(full_url).netloc.lower()
         if link_domain != dept_domain:
             continue
 
+        # Keyword matching starts
         for key, meta in KEYWORD_MAP.items():
             if key in text or (
                 re.search(r"notice|scholar|academic", href.lower()) and key in text
             ):
+                # Pass both target_soup (current page source) and full_url (board URL)
+                current_selectors = detect_cms_and_get_selectors(target_soup, full_url)
+
+                # If detection based on URL alone fails, use default selectors
+                if current_selectors is None:
+                    current_selectors = default_cms_selectors
+
+                # If selectors are still not found, mark for manual review
+                if current_selectors is None:
+                    continue
+
                 base_id = meta["id"]
                 id_counts[base_id] = id_counts.get(base_id, 0) + 1
                 final_id = (
@@ -182,7 +183,7 @@ def extract_boards_from_soup(target_soup, dept_url, dept_info):
                         "id": final_id,
                         "name": text if text else meta["name"],
                         "url": full_url,
-                        **cms_selectors,
+                        **current_selectors,  # Inject CMS selectors
                     }
                 )
                 seen_urls.add(full_url)
