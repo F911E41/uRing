@@ -16,9 +16,10 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [selectedCampus, setSelectedCampus] = useState<string | null>(null);
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
+  const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Get unique campuses and departments
+  // Get unique campuses, departments, and boards
   const campuses = Array.from(
     new Set(notices.map((notice) => notice.campus))
   ).sort();
@@ -33,9 +34,20 @@ export default function Home() {
     ).sort()
     : [];
 
+  const boards = selectedCampus
+    ? Array.from(
+      new Set(
+        notices
+          .filter((notice) => notice.campus === selectedCampus)
+          .map((notice) => notice.board_name)
+      )
+    ).sort()
+    : [];
+
   const filteredNotices = notices.filter((notice) => {
     if (selectedCampus && notice.campus !== selectedCampus) return false;
     if (selectedDept && notice.department_name !== selectedDept) return false;
+    if (selectedBoard && notice.board_name !== selectedBoard) return false;
     if (searchQuery && !notice.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
@@ -62,10 +74,15 @@ export default function Home() {
   const handleCampusChange = (campus: string | null) => {
     setSelectedCampus(campus);
     setSelectedDept(null);
+    setSelectedBoard(null);
   };
 
   const handleDeptChange = (dept: string | null) => {
     setSelectedDept(dept);
+  };
+
+  const handleBoardChange = (board: string | null) => {
+    setSelectedBoard(board);
   };
 
   if (loading) {
@@ -150,7 +167,7 @@ export default function Home() {
 
           {/* Filters */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Campus Filter */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
@@ -189,10 +206,30 @@ export default function Home() {
                   ))}
                 </select>
               </div>
+
+              {/* Board Filter */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                  📋 게시판
+                </label>
+                <select
+                  value={selectedBoard || ''}
+                  onChange={(e) => handleBoardChange(e.target.value || null)}
+                  disabled={!selectedCampus}
+                  className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 dark:text-gray-100 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="">전체 게시판</option>
+                  {boards.map((board) => (
+                    <option key={board} value={board}>
+                      {board}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {/* Active Filters Display */}
-            {(selectedCampus || selectedDept || searchQuery) && (
+            {(selectedCampus || selectedDept || selectedBoard || searchQuery) && (
               <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-medium text-gray-600 dark:text-gray-400">활성 필터:</span>
@@ -208,6 +245,12 @@ export default function Home() {
                       <button onClick={() => handleDeptChange(null)} className="hover:text-green-900 dark:hover:text-green-100">×</button>
                     </span>
                   )}
+                  {selectedBoard && (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 rounded-full text-xs font-medium">
+                      {selectedBoard}
+                      <button onClick={() => handleBoardChange(null)} className="hover:text-orange-900 dark:hover:text-orange-100">×</button>
+                    </span>
+                  )}
                   {searchQuery && (
                     <span className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded-full text-xs font-medium">
                       "{searchQuery}"
@@ -218,6 +261,7 @@ export default function Home() {
                     onClick={() => {
                       handleCampusChange(null);
                       handleDeptChange(null);
+                      handleBoardChange(null);
                       setSearchQuery('');
                     }}
                     className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline"
@@ -254,6 +298,7 @@ export default function Home() {
               onClick={() => {
                 handleCampusChange(null);
                 handleDeptChange(null);
+                handleBoardChange(null);
                 setSearchQuery('');
               }}
               className="mt-6 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors font-medium"
