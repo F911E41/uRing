@@ -67,8 +67,18 @@ def detect_cms_and_get_selectors(soup, url):
 # Discover useful boards from a department URL
 def discover_boards(dept_info, dept_url):
     boards = []
-    if not dept_url:
-        return boards
+
+    # If the `url` is `NOT_FOUND` or invalid, we cannot proceed
+    if dept_url == "NOT_FOUND" or not dept_url.startswith("http"):
+        manual_review_needed.append(
+            {
+                "campus": dept_info["campus"],
+                "name": dept_info["name"],
+                "url": dept_url,
+                "reason": "Homepage URL is invalid",
+            }
+        )
+        return []
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -79,18 +89,6 @@ def discover_boards(dept_info, dept_url):
         soup = BeautifulSoup(res.text, "html.parser")
 
         cms_selectors = detect_cms_and_get_selectors(soup, dept_url)
-
-        # If the `url` is `NOT_FOUND`, we cannot proceed
-        if dept_url == "NOT_FOUND":
-            manual_review_needed.append(
-                {
-                    "campus": dept_info["campus"],
-                    "name": dept_info["name"],
-                    "url": dept_url,
-                    "reason": "Homepage URL is `NOT_FOUND`",
-                }
-            )
-            return []
 
         # If CMS detection fails, add to manual review list
         if cms_selectors is None:
