@@ -3,36 +3,16 @@
         "campus": "신촌캠퍼스",
         "colleges": [
             {
-                "name": "연세대학교",
-                "departments": [
-                    {
-                        "id": "yonsei_main",
-                        "name": "연세대학교",
-                        "boards": [
-                            {
-                                "id": "notice",
-                                "name": "공지사항",
-                                "url": "https://www.yonsei.ac.kr/sc/254/subview.do",
-                                "row_selector": "li.board-noti",
-                                "title_selector": "div.title strong",
-                                "date_selector": "div.date-area",
-                                "attr_name": "href",
-                                "link_selector": "a"
-                            }
-                        ]
-                    }
-                ]
-            },
-            {
                 "name": "문과대학",
                 "departments": [
                     {
                         "id": "yonsei_koreanlit",
                         "name": "국어국문학",
+                        "url": "https://koreanlit.yonsei.ac.kr/korean/index.do",
                         "boards": [
                             {
-                                "id": "academic",
-                                "name": "학사공지",
+                                "id": "notice",
+                                "name": "공지사항",
                                 "url": "https://koreanlit.yonsei.ac.kr/korean/notice01.do",
                                 "row_selector": "tr:has(a.c-board-title)",
                                 "title_selector": "a.c-board-title",
@@ -40,17 +20,8 @@
                                 "attr_name": "href"
                             },
                             {
-                                "id": "bachelor",
-                                "name": "대학원공지",
-                                "url": "https://koreanlit.yonsei.ac.kr/korean/notice02.do",
-                                "row_selector": "tr:has(a.c-board-title)",
-                                "title_selector": "a.c-board-title",
-                                "date_selector": "td:nth-last-child(1)",
-                                "attr_name": "href"
-                            },
-                            {
                                 "id": "scholarship",
-                                "name": "학부장학금",
+                                "name": "장학금",
                                 "url": "https://koreanlit.yonsei.ac.kr/korean/scholarship01.do",
                                 "row_selector": "tr:has(a.c-board-title)",
                                 "title_selector": "a.c-board-title",
@@ -58,18 +29,9 @@
                                 "attr_name": "href"
                             },
                             {
-                                "id": "scholarship",
-                                "name": "대학원장학금",
-                                "url": "https://koreanlit.yonsei.ac.kr/korean/scholarship02.do",
-                                "row_selector": "tr:has(a.c-board-title)",
-                                "title_selector": "a.c-board-title",
-                                "date_selector": "td:nth-last-child(1)",
-                                "attr_name": "href"
-                            },
-                            {
-                                "id": "scholarship",
-                                "name": "외국인장학금",
-                                "url": "https://koreanlit.yonsei.ac.kr/korean/scholarship03.do",
+                                "id": "career",
+                                "name": "취업/공모전",
+                                "url": "https://koreanlit.yonsei.ac.kr/korean/jobs01.do",
                                 "row_selector": "tr:has(a.c-board-title)",
                                 "title_selector": "a.c-board-title",
                                 "date_selector": "td:nth-last-child(1)",
@@ -78,22 +40,331 @@
                         ]
                     },
                     {
-                        "id": "yonsei_koreanlit",
-                        "name": "국어국문학",
+                        "id": "yonsei_ycll",
+                        "name": "중어중문학",
+                        "url": "http://ycll.yonsei.ac.kr",
                         "boards": [
                             {
-                                "id": "academic",
-                                "name": "학사공지",
-                                "url": "https://koreanlit.yonsei.ac.kr/korean/notice01.do",
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "http://ycll.yonsei.ac.kr/yonseicll/board01.do",
                                 "row_selector": "tr:has(a.c-board-title)",
                                 "title_selector": "a.c-board-title",
                                 "date_selector": "td:nth-last-child(1)",
                                 "attr_name": "href"
                             },
                             {
-                                "id": "seminar",
-                                "name": "대학원공지",
-                                "url": "https://koreanlit.yonsei.ac.kr/korean/notice02.do",
+                                "id": "career",
+                                "name": "취업 정보",
+                                "url": "http://ycll.yonsei.ac.kr/yonseicll/board02.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "scholarship",
+                                "name": "장학금 정보",
+                                "url": "http://ycll.yonsei.ac.kr/yonseicll/board03.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_ysenglish",
+                        "name": "영어영문학",
+                        "url": "http://ysenglish.yonsei.ac.kr",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "http://ysenglish.yonsei.ac.kr/ysenglish/process/process.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice_2",
+                                "name": "공지사항",
+                                "url": "http://ysenglish.yonsei.ac.kr/ysenglish/graduate/graduat_notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_ysgerman",
+                        "name": "독어독문학",
+                        "url": "https://ysgerman.yonsei.ac.kr/ysgerman/index.do",
+                        "boards": [
+                            {
+                                "id": "scholarship",
+                                "name": "장학금",
+                                "url": "https://ysgerman.yonsei.ac.kr/ysgerman/undergraduate/scholarship.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "https://ysgerman.yonsei.ac.kr/ysgerman/ger_notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_franys",
+                        "name": "불어불문학",
+                        "url": "http://franys.yonsei.ac.kr/",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "http://franys.yonsei.ac.kr/franys/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "career",
+                                "name": "취업정보",
+                                "url": "http://franys.yonsei.ac.kr/franys/job.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_rus",
+                        "name": "노어노문학",
+                        "url": "https://rus.yonsei.ac.kr",
+                        "boards": [
+                            {
+                                "id": "career",
+                                "name": "취업지원",
+                                "url": "https://rus.yonsei.ac.kr/russia/senior_meeting.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "https://rus.yonsei.ac.kr/russia/borad_main.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice_2",
+                                "name": "공지사항",
+                                "url": "https://rus.yonsei.ac.kr/russia/board_main.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_history",
+                        "name": "사학",
+                        "url": "http://history.yonsei.ac.kr",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "http://history.yonsei.ac.kr/histroy/02_announce/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "career",
+                                "name": "취업관련 정보",
+                                "url": "http://history.yonsei.ac.kr/histroy/02_announce/job.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "scholarship",
+                                "name": "장학 정보",
+                                "url": "http://history.yonsei.ac.kr/histroy/03_dept-grad/scholarship.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_philosophy",
+                        "name": "철학",
+                        "url": "https://philosophy.yonsei.ac.kr/",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "https://philosophy.yonsei.ac.kr/cholhak/process/process.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "career",
+                                "name": "취업 및 공모",
+                                "url": "https://philosophy.yonsei.ac.kr/cholhak/Employment.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice_2",
+                                "name": "대학원 공지사항",
+                                "url": "https://philosophy.yonsei.ac.kr/cholhak/board/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_yslis",
+                        "name": "문헌정보학",
+                        "url": "https://yslis.yonsei.ac.kr",
+                        "boards": [
+                            {
+                                "id": "scholarship",
+                                "name": "장학금",
+                                "url": "https://yslis.yonsei.ac.kr/doai/ghack.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "https://yslis.yonsei.ac.kr/doai/board/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "career",
+                                "name": "취업정보게시판",
+                                "url": "https://yslis.yonsei.ac.kr/doai/board/master_research.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_psychsci",
+                        "name": "심리학",
+                        "url": "https://psychsci.yonsei.ac.kr/",
+                        "boards": []
+                    }
+                ]
+            },
+            {
+                "name": "상경대학",
+                "departments": [
+                    {
+                        "id": "yonsei_economics",
+                        "name": "경제학부",
+                        "url": "http://economics.yonsei.ac.kr",
+                        "boards": [
+                            {
+                                "id": "scholarship",
+                                "name": "장학제도",
+                                "url": "http://economics.yonsei.ac.kr/economics/department/scholarship.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "career",
+                                "name": "취업게시판",
+                                "url": "http://economics.yonsei.ac.kr/economics/community/job.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "scholarship_2",
+                                "name": "장학금 및 재정지원",
+                                "url": "http://economics.yonsei.ac.kr/economics/shcolarship2.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_stat",
+                        "name": "응용통계학",
+                        "url": "http://stat.yonsei.ac.kr",
+                        "boards": [
+                            {
+                                "id": "scholarship",
+                                "name": "장학제도안내",
+                                "url": "http://stat.yonsei.ac.kr/stat/administration/scholarship.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "academic",
+                                "name": "학부공지사항",
+                                "url": "http://stat.yonsei.ac.kr/stat/board/under_notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "grad_notice",
+                                "name": "대학원공지사항",
+                                "url": "http://stat.yonsei.ac.kr/stat/board/grad_notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "career",
+                                "name": "취업게시판",
+                                "url": "http://stat.yonsei.ac.kr/stat/board/job.do",
                                 "row_selector": "tr:has(a.c-board-title)",
                                 "title_selector": "a.c-board-title",
                                 "date_selector": "td:nth-last-child(1)",
@@ -104,16 +375,220 @@
                 ]
             },
             {
+                "name": "경영대학",
+                "departments": [
+                    {
+                        "id": "yonsei_경영학과",
+                        "name": "경영학과",
+                        "url": "NOT_FOUND",
+                        "boards": []
+                    }
+                ]
+            },
+            {
+                "name": "이과대학",
+                "departments": [
+                    {
+                        "id": "yonsei_math",
+                        "name": "수학",
+                        "url": "http://math.yonsei.ac.kr/",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "대학원 공지사항",
+                                "url": "http://math.yonsei.ac.kr/math/math/graduate_notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "scholarship",
+                                "name": "공동연구 장학금 신청",
+                                "url": "http://math.yonsei.ac.kr/math/scholarship.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice_2",
+                                "name": "학부 공지사항",
+                                "url": "http://math.yonsei.ac.kr/math/math/undergraduate_notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_physics",
+                        "name": "물리학",
+                        "url": "https://physics.yonsei.ac.kr/",
+                        "boards": []
+                    },
+                    {
+                        "id": "yonsei_chem",
+                        "name": "화학",
+                        "url": "http://chem.yonsei.ac.kr/ ",
+                        "boards": []
+                    },
+                    {
+                        "id": "yonsei_geo",
+                        "name": "지구시스템과학",
+                        "url": "http://geo.yonsei.ac.kr",
+                        "boards": []
+                    },
+                    {
+                        "id": "yonsei_astro",
+                        "name": "천문우주학",
+                        "url": "http://astro.yonsei.ac.kr/galaxy/index.do",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "http://astro.yonsei.ac.kr/galaxy/galaxy01/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_atmos",
+                        "name": "대기과학",
+                        "url": "https://atmos.yonsei.ac.kr",
+                        "boards": []
+                    },
+                    {
+                        "id": "yonsei_인공위성시스템학과",
+                        "name": "인공위성시스템학과",
+                        "url": "NOT_FOUND",
+                        "boards": []
+                    }
+                ]
+            },
+            {
                 "name": "공과대학",
                 "departments": [
                     {
+                        "id": "yonsei_chemeng",
+                        "name": "화공생명공학과",
+                        "url": "http://chemeng.yonsei.ac.kr/ ",
+                        "boards": []
+                    },
+                    {
                         "id": "yonsei_ee",
-                        "name": "전기전자공학부",
+                        "name": "전기전자공학과",
+                        "url": "https://ee.yonsei.ac.kr/ee/index.do",
                         "boards": [
                             {
-                                "id": "academic",
-                                "name": "학사공지",
+                                "id": "notice",
+                                "name": "공지사항",
                                 "url": "https://ee.yonsei.ac.kr/ee/community/academic_notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice_2",
+                                "name": "종합설계 공지사항",
+                                "url": "https://ee.yonsei.ac.kr/ee/education/ee_notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "scholarship",
+                                "name": "장학금안내",
+                                "url": "https://ee.yonsei.ac.kr/ee/education/under_scholarship.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "scholarship_2",
+                                "name": "장학금안내",
+                                "url": "https://ee.yonsei.ac.kr/ee/education/grad_scholarship.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_arch",
+                        "name": "건축공학과",
+                        "url": "http://arch.yonsei.ac.kr/",
+                        "boards": []
+                    },
+                    {
+                        "id": "yonsei_urban",
+                        "name": "도시공학과",
+                        "url": "https://urban.yonsei.ac.kr/urban/index.do",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "https://urban.yonsei.ac.kr/urban/notice/notice.do?mode=list",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "career",
+                                "name": "취업정보",
+                                "url": "https://urban.yonsei.ac.kr/urban/update/career.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice_2",
+                                "name": "공지사항",
+                                "url": "https://urban.yonsei.ac.kr/urban/bk21_notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_civil",
+                        "name": "건설환경공학과",
+                        "url": "https://civil.yonsei.ac.kr/civil/index.do",
+                        "boards": [
+                            {
+                                "id": "career",
+                                "name": "취업 정보",
+                                "url": "https://civil.yonsei.ac.kr/civil/community/board_4.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "scholarship",
+                                "name": "장학제도",
+                                "url": "https://civil.yonsei.ac.kr/civil/education/f_5.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "scholarship_2",
+                                "name": "장학제도",
+                                "url": "https://civil.yonsei.ac.kr/civil/education/g_4.do",
                                 "row_selector": "tr:has(a.c-board-title)",
                                 "title_selector": "a.c-board-title",
                                 "date_selector": "td:nth-last-child(1)",
@@ -123,11 +598,21 @@
                     },
                     {
                         "id": "yonsei_me",
-                        "name": "기계공학부",
+                        "name": "기계공학과",
+                        "url": "https://me.yonsei.ac.kr/me/index.do",
                         "boards": [
                             {
+                                "id": "scholarship",
+                                "name": "장학금",
+                                "url": "https://me.yonsei.ac.kr/me/community/scholar.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
                                 "id": "notice",
-                                "name": "공지사항",
+                                "name": "뉴스 및 공지사항",
                                 "url": "https://me.yonsei.ac.kr/me/community/notice.do",
                                 "row_selector": "tr:has(a.c-board-title)",
                                 "title_selector": "a.c-board-title",
@@ -135,9 +620,45 @@
                                 "attr_name": "href"
                             },
                             {
-                                "id": "notice2",
-                                "name": "취업/장학",
+                                "id": "career",
+                                "name": "취업 정보",
+                                "url": "https://me.yonsei.ac.kr/me/community/job.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "scholarship_2",
+                                "name": "교내 장학금",
+                                "url": "https://me.yonsei.ac.kr/me/community/scholar_yonsei.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice_2",
+                                "name": "대학원 공지사항",
                                 "url": "https://me.yonsei.ac.kr/me/community/notice2.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice_3",
+                                "name": "외부기관 공지사항",
+                                "url": "https://me.yonsei.ac.kr/me/community/notice3.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "scholarship_3",
+                                "name": "장학생 선발공고",
+                                "url": "https://me.yonsei.ac.kr/me/community/notice4.do",
                                 "row_selector": "tr:has(a.c-board-title)",
                                 "title_selector": "a.c-board-title",
                                 "date_selector": "td:nth-last-child(1)",
@@ -146,13 +667,156 @@
                         ]
                     },
                     {
-                        "id": "yonsei_cs",
-                        "name": "첨단컴퓨팅학부",
+                        "id": "yonsei_mse",
+                        "name": "신소재공학과",
+                        "url": "https://mse.yonsei.ac.kr/mse/index.do",
+                        "boards": []
+                    },
+                    {
+                        "id": "yonsei_ie",
+                        "name": "산업공학과",
+                        "url": "https://ie.yonsei.ac.kr/",
+                        "boards": []
+                    },
+                    {
+                        "id": "yonsei_system",
+                        "name": "시스템반도체공학과",
+                        "url": "https://system.yonsei.ac.kr",
+                        "boards": []
+                    },
+                    {
+                        "id": "yonsei_dis",
+                        "name": "디스플레이융합공학과",
+                        "url": "https://dis.yonsei.ac.kr/index.php",
+                        "boards": []
+                    },
+                    {
+                        "id": "yonsei_디지털융합엔지니어링학과",
+                        "name": "디지털융합엔지니어링학과",
+                        "url": "NOT_FOUND",
+                        "boards": []
+                    },
+                    {
+                        "id": "yonsei_지능형데이터·최적화학과",
+                        "name": "지능형데이터·최적화학과",
+                        "url": "NOT_FOUND",
+                        "boards": []
+                    },
+                    {
+                        "id": "yonsei_배터리공학과",
+                        "name": "배터리공학과",
+                        "url": "NOT_FOUND",
+                        "boards": []
+                    }
+                ]
+            },
+            {
+                "name": "생명시스템대학",
+                "departments": [
+                    {
+                        "id": "yonsei_systemsbiology",
+                        "name": "시스템생물학",
+                        "url": "http://systemsbiology.yonsei.ac.kr/",
                         "boards": [
                             {
-                                "id": "faculty",
+                                "id": "scholarship",
+                                "name": "장학지원",
+                                "url": "http://systemsbiology.yonsei.ac.kr/l_system/Scholarship_support.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "scholarship_2",
+                                "name": "장학지원",
+                                "url": "http://systemsbiology.yonsei.ac.kr/l_system/Scholarship__support.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice",
                                 "name": "공지사항",
-                                "url": "https://cs.yonsei.ac.kr/csai/board/facultyBoard.do",
+                                "url": "http://systemsbiology.yonsei.ac.kr/l_system/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_biochem",
+                        "name": "생화학",
+                        "url": "http://biochem.yonsei.ac.kr/",
+                        "boards": [
+                            {
+                                "id": "scholarship",
+                                "name": "장학금안내",
+                                "url": "http://biochem.yonsei.ac.kr/biochem/intro/scholarships.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "scholarship_2",
+                                "name": "장학지원",
+                                "url": "http://biochem.yonsei.ac.kr/biochem/department/scholarships02.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "scholarship_3",
+                                "name": "장학지원",
+                                "url": "http://biochem.yonsei.ac.kr/biochem/graduate/scholarships.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice",
+                                "name": "학부 공지사항",
+                                "url": "http://biochem.yonsei.ac.kr/biochem/board/board01.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice_2",
+                                "name": "대학원 공지사항",
+                                "url": "http://biochem.yonsei.ac.kr/biochem/board/board02.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_biotech",
+                        "name": "생명공학",
+                        "url": "http://biotech.yonsei.ac.kr",
+                        "boards": [
+                            {
+                                "id": "scholarship",
+                                "name": "장학금 안내",
+                                "url": "http://biotech.yonsei.ac.kr/biotech/about/scholarship.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "http://biotech.yonsei.ac.kr/biotech/community/announce.do",
                                 "row_selector": "tr:has(a.c-board-title)",
                                 "title_selector": "a.c-board-title",
                                 "date_selector": "td:nth-last-child(1)",
@@ -161,57 +825,1170 @@
                         ]
                     }
                 ]
+            },
+            {
+                "name": "인공지능융합대학",
+                "departments": [
+                    {
+                        "id": "yonsei_cais",
+                        "name": "첨단컴퓨팅학부",
+                        "url": "https://cais.yonsei.ac.kr",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "https://cais.yonsei.ac.kr/csai/board/facultyBoard.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "career",
+                                "name": "취업정보",
+                                "url": "https://cais.yonsei.ac.kr/csai/board/jobInfo.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_cais",
+                        "name": "컴퓨터과학과",
+                        "url": "http://cais.yonsei.ac.kr",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "http://cais.yonsei.ac.kr/csai/board/facultyBoard.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "career",
+                                "name": "취업정보",
+                                "url": "http://cais.yonsei.ac.kr/csai/board/jobInfo.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_cais",
+                        "name": "인공지능학과",
+                        "url": "https://cais.yonsei.ac.kr/",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "https://cais.yonsei.ac.kr/csai/board/facultyBoard.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "career",
+                                "name": "취업정보",
+                                "url": "https://cais.yonsei.ac.kr/csai/board/jobInfo.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_ais",
+                        "name": "인공지능시스템학과",
+                        "url": "https://ais.yonsei.ac.kr",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "https://ais.yonsei.ac.kr/csai/board/facultyBoard.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "career",
+                                "name": "취업정보",
+                                "url": "https://ais.yonsei.ac.kr/csai/board/jobInfo.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_sit",
+                        "name": "첨단융합공학부",
+                        "url": "https://sit.yonsei.ac.kr",
+                        "boards": [
+                            {
+                                "id": "scholarship",
+                                "name": "장학 제도",
+                                "url": "https://sit.yonsei.ac.kr/sit/undergraduate/scholarship.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "scholarship_2",
+                                "name": "장학 제도",
+                                "url": "https://sit.yonsei.ac.kr/sit/graduate/scholarship.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "https://sit.yonsei.ac.kr/sit/community/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "career",
+                                "name": "취업정보",
+                                "url": "https://sit.yonsei.ac.kr/sit/community/employment.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_sit",
+                        "name": "IT융합공학전공",
+                        "url": "https://sit.yonsei.ac.kr/",
+                        "boards": [
+                            {
+                                "id": "scholarship",
+                                "name": "장학 제도",
+                                "url": "https://sit.yonsei.ac.kr/sit/undergraduate/scholarship.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "scholarship_2",
+                                "name": "장학 제도",
+                                "url": "https://sit.yonsei.ac.kr/sit/graduate/scholarship.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "https://sit.yonsei.ac.kr/sit/community/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "career",
+                                "name": "취업정보",
+                                "url": "https://sit.yonsei.ac.kr/sit/community/employment.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_sit",
+                        "name": "지능형반도체전공",
+                        "url": "http://sit.yonsei.ac.kr",
+                        "boards": [
+                            {
+                                "id": "scholarship",
+                                "name": "장학 제도",
+                                "url": "http://sit.yonsei.ac.kr/sit/undergraduate/scholarship.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "scholarship_2",
+                                "name": "장학 제도",
+                                "url": "http://sit.yonsei.ac.kr/sit/graduate/scholarship.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "http://sit.yonsei.ac.kr/sit/community/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "career",
+                                "name": "취업정보",
+                                "url": "http://sit.yonsei.ac.kr/sit/community/employment.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "name": "신과대학",
+                "departments": [
+                    {
+                        "id": "yonsei_yonshin",
+                        "name": "신학",
+                        "url": "http://yonshin.yonsei.ac.kr/theology/index.do",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "http://yonshin.yonsei.ac.kr/theology/forum/theology.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice_2",
+                                "name": "공지사항",
+                                "url": "http://yonshin.yonsei.ac.kr/theology/board02/undergraduate.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "scholarship",
+                                "name": "장학금제도",
+                                "url": "http://yonshin.yonsei.ac.kr/theology/department/scholarship.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "name": "사회과학대학",
+                "departments": [
+                    {
+                        "id": "yonsei_politics",
+                        "name": "정치외교학",
+                        "url": "http://politics.yonsei.ac.kr",
+                        "boards": []
+                    },
+                    {
+                        "id": "yonsei_yupa",
+                        "name": "행정학",
+                        "url": "http://yupa.yonsei.ac.kr/",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "http://yupa.yonsei.ac.kr/yupa/notice/undergraduate.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice_2",
+                                "name": "대학원 공지사항",
+                                "url": "http://yupa.yonsei.ac.kr/yupa/notice/graduate.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "scholarship",
+                                "name": "장학제도",
+                                "url": "http://yupa.yonsei.ac.kr/yupa/info/under_scholarship.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "scholarship_2",
+                                "name": "장학제도",
+                                "url": "http://yupa.yonsei.ac.kr/yupa/info/grad_scholarship.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_welfare",
+                        "name": "사회복지학",
+                        "url": "http://welfare.yonsei.ac.kr",
+                        "boards": [
+                            {
+                                "id": "scholarship",
+                                "name": "장학안내",
+                                "url": "http://welfare.yonsei.ac.kr/welfare/social/scholarship.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice",
+                                "name": "학사공지사항",
+                                "url": "http://welfare.yonsei.ac.kr/welfare/board/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_sociology",
+                        "name": "사회학",
+                        "url": "http://sociology.yonsei.ac.kr/",
+                        "boards": []
+                    },
+                    {
+                        "id": "yonsei_anthro",
+                        "name": "문화인류학",
+                        "url": "http://anthro.yonsei.ac.kr/",
+                        "boards": [
+                            {
+                                "id": "scholarship",
+                                "name": "잔디밭장학금",
+                                "url": "http://anthro.yonsei.ac.kr/anthro/activity/scholarship.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_comm",
+                        "name": "언론홍보영상학부",
+                        "url": "http://comm.yonsei.ac.kr/",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "학사 공지사항",
+                                "url": "http://comm.yonsei.ac.kr/mcc/hgong.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "name": "음악대학",
+                "departments": [
+                    {
+                        "id": "yonsei_교회음악과",
+                        "name": "교회음악과",
+                        "url": "NOT_FOUND",
+                        "boards": []
+                    },
+                    {
+                        "id": "yonsei_music",
+                        "name": "성악과",
+                        "url": "http://music.yonsei.ac.kr/3m02.asp",
+                        "boards": []
+                    },
+                    {
+                        "id": "yonsei_music",
+                        "name": "피아노과",
+                        "url": "http://music.yonsei.ac.kr/3m03.asp",
+                        "boards": []
+                    },
+                    {
+                        "id": "yonsei_music",
+                        "name": "관현악과",
+                        "url": "http://music.yonsei.ac.kr/3m04.asp",
+                        "boards": []
+                    },
+                    {
+                        "id": "yonsei_music",
+                        "name": "작곡과",
+                        "url": "http://music.yonsei.ac.kr/3m05.asp",
+                        "boards": []
+                    }
+                ]
+            },
+            {
+                "name": "생활과학대학",
+                "departments": [
+                    {
+                        "id": "yonsei_che",
+                        "name": "의류환경학",
+                        "url": "http://che.yonsei.ac.kr/che/departments/clothing_intro.do",
+                        "boards": [
+                            {
+                                "id": "scholarship",
+                                "name": "장학제도",
+                                "url": "http://che.yonsei.ac.kr/che/about/scholarship.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "academic",
+                                "name": "학사공지",
+                                "url": "http://che.yonsei.ac.kr/che/community_che/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "scholarship_2",
+                                "name": "후배사랑 장학금",
+                                "url": "http://che.yonsei.ac.kr/che/reunion/scholarship.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_che",
+                        "name": "식품영양학",
+                        "url": "http://che.yonsei.ac.kr/che/departments/food_intro.do",
+                        "boards": [
+                            {
+                                "id": "scholarship",
+                                "name": "장학제도",
+                                "url": "http://che.yonsei.ac.kr/che/about/scholarship.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "academic",
+                                "name": "학사공지",
+                                "url": "http://che.yonsei.ac.kr/che/community_che/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "scholarship_2",
+                                "name": "후배사랑 장학금",
+                                "url": "http://che.yonsei.ac.kr/che/reunion/scholarship.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_che",
+                        "name": "실내건축학",
+                        "url": "http://che.yonsei.ac.kr/che/interior/interior_intro01.do",
+                        "boards": [
+                            {
+                                "id": "scholarship",
+                                "name": "장학제도",
+                                "url": "http://che.yonsei.ac.kr/che/about/scholarship.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "academic",
+                                "name": "학사공지",
+                                "url": "http://che.yonsei.ac.kr/che/community_che/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "scholarship_2",
+                                "name": "후배사랑 장학금",
+                                "url": "http://che.yonsei.ac.kr/che/reunion/scholarship.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_che",
+                        "name": "아동.가족학",
+                        "url": "http://che.yonsei.ac.kr/che/child/child_intro01.do ",
+                        "boards": []
+                    },
+                    {
+                        "id": "yonsei_che",
+                        "name": "통합디자인학",
+                        "url": "http://che.yonsei.ac.kr/che/design/design_intro01.do",
+                        "boards": [
+                            {
+                                "id": "scholarship",
+                                "name": "장학제도",
+                                "url": "http://che.yonsei.ac.kr/che/about/scholarship.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "academic",
+                                "name": "학사공지",
+                                "url": "http://che.yonsei.ac.kr/che/community_che/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "scholarship_2",
+                                "name": "후배사랑 장학금",
+                                "url": "http://che.yonsei.ac.kr/che/reunion/scholarship.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "name": "교육과학대학",
+                "departments": [
+                    {
+                        "id": "yonsei_edu",
+                        "name": "교육학",
+                        "url": "http://edu.yonsei.ac.kr/edu/",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "공지사항 더보기",
+                                "url": "http://edu.yonsei.ac.kr/edu/community/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_ped",
+                        "name": "체육교육학",
+                        "url": "http://ped.yonsei.ac.kr/",
+                        "boards": []
+                    },
+                    {
+                        "id": "yonsei_sportindustrystudies",
+                        "name": "스포츠응용산업학",
+                        "url": "https://sportindustrystudies.yonsei.ac.kr",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "https://sportindustrystudies.yonsei.ac.kr/ysis/search/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "career",
+                                "name": "취업/홍보 게시판",
+                                "url": "https://sportindustrystudies.yonsei.ac.kr/ysis/college/college06.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice_2",
+                                "name": "공지사항",
+                                "url": "https://sportindustrystudies.yonsei.ac.kr/ysis/bk21/edunotice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "name": "학부대학",
+                "departments": []
+            },
+            {
+                "name": "언더우드국제대학",
+                "departments": []
+            },
+            {
+                "name": "글로벌인재대학",
+                "departments": []
+            },
+            {
+                "name": "의과대학",
+                "departments": []
+            },
+            {
+                "name": "치과대학",
+                "departments": []
+            },
+            {
+                "name": "간호대학",
+                "departments": []
+            },
+            {
+                "name": "약학대학",
+                "departments": []
             }
         ]
     },
     {
         "campus": "미래캠퍼스",
-        "departments": [
+        "colleges": [
             {
-                "id": "yonsei_mirae_main",
-                "name": "연세대학교(미래)",
-                "boards": [
+                "name": "글로벌창의융합대학",
+                "departments": [
                     {
-                        "id": "notice",
-                        "name": "공지사항",
-                        "url": "https://mirae.yonsei.ac.kr/wj/1415/subview.do",
-                        "row_selector": "li.board-noti",
-                        "title_selector": "div.title strong",
-                        "date_selector": "div.date-area",
-                        "attr_name": "href",
-                        "link_selector": "a"
+                        "id": "yonsei_ywkll",
+                        "name": "국어국문학",
+                        "url": "http://ywkll.yonsei.ac.kr",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "http://ywkll.yonsei.ac.kr/ywkll/reunion/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice_2",
+                                "name": "공지사항",
+                                "url": "http://ywkll.yonsei.ac.kr/ywkll/graduate/grad_notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "career",
+                                "name": "취업정보",
+                                "url": "http://ywkll.yonsei.ac.kr/ywkll/reunion/notice2.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_engys",
+                        "name": "영어영문학",
+                        "url": "http://engys.yonsei.ac.kr",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "http://engys.yonsei.ac.kr/engys/admin/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "career",
+                                "name": "취업정보게시판",
+                                "url": "http://engys.yonsei.ac.kr/engys/community/info.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_yhc",
+                        "name": "역사문화학",
+                        "url": "http://yhc.yonsei.ac.kr",
+                        "boards": [
+                            {
+                                "id": "scholarship",
+                                "name": "장학제도",
+                                "url": "http://yhc.yonsei.ac.kr/yhc/undergraduate/scholarship.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "http://yhc.yonsei.ac.kr/yhc/community/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_sofia",
+                        "name": "철학",
+                        "url": "http://sofia.yonsei.ac.kr",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "http://sofia.yonsei.ac.kr/sofia/admin/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_msb",
+                        "name": "경영학",
+                        "url": "http://msb.yonsei.ac.kr/",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "http://msb.yonsei.ac.kr/msb/community/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "career",
+                                "name": "취업정보",
+                                "url": "http://msb.yonsei.ac.kr/msb/community/jobs.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_econ",
+                        "name": "경제학",
+                        "url": "http://econ.yonsei.ac.kr/",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "http://econ.yonsei.ac.kr/econ/board/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_gpad",
+                        "name": "글로벌행정학",
+                        "url": "http://gpad.yonsei.ac.kr/",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "http://gpad.yonsei.ac.kr/gpad/community/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_ir",
+                        "name": "국제관계학",
+                        "url": "http://ir.yonsei.ac.kr/",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "http://ir.yonsei.ac.kr/yir/community/academic_noticeee.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "career",
+                                "name": "진로와 취업",
+                                "url": "http://ir.yonsei.ac.kr/yir/community/reservationn.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_eic",
+                        "name": "동아시아국제학부",
+                        "url": "http://eic.yonsei.ac.kr/",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "http://eic.yonsei.ac.kr/eic/board/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "career",
+                                "name": "취업 / 경력개발 정보",
+                                "url": "http://eic.yonsei.ac.kr/eic/board/job_career.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_ycms",
+                        "name": "산업디자인학",
+                        "url": "https://ycms.yonsei.ac.kr/id/index.do",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "학부 공지사항",
+                                "url": "https://ycms.yonsei.ac.kr/id/community/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice_2",
+                                "name": "대학원 공지사항",
+                                "url": "https://ycms.yonsei.ac.kr/id/notice2.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_vd",
+                        "name": "시각디자인학",
+                        "url": "https://vd.yonsei.ac.kr/",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "대학원 공지사항",
+                                "url": "https://vd.yonsei.ac.kr/vd/community/notice2.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_da",
+                        "name": "디지털아트학",
+                        "url": "http://da.yonsei.ac.kr",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "학부 공지사항",
+                                "url": "http://da.yonsei.ac.kr/da/community/new_notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice_2",
+                                "name": "대학원 공지사항",
+                                "url": "http://da.yonsei.ac.kr/da/community/notice2.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
                     }
                 ]
             },
             {
-                "id": "yonsei_sw",
-                "name": "소프트웨어학부",
-                "boards": [
+                "name": "과학기술융합대학",
+                "departments": [
                     {
-                        "id": "notice",
-                        "name": "공지사항",
-                        "url": "https://sw.yonsei.ac.kr/notice",
-                        "row_selector": "li.xe-list-board-list--item:not(.xe-list-board-list--header)",
-                        "title_selector": "a.xe-list-board-list__title-link",
-                        "date_selector": "div.xe-list-board-list__created_at",
-                        "attr_name": "href"
+                        "id": "yonsei_phys",
+                        "name": "물리및공학물리학",
+                        "url": "http://phys.yonsei.ac.kr",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "http://phys.yonsei.ac.kr/ymphys/no1.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_chemistry",
+                        "name": "화학및의화학",
+                        "url": "http://chemistry.yonsei.ac.kr",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "http://chemistry.yonsei.ac.kr/chemistry/board/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "career",
+                                "name": "취업공지",
+                                "url": "http://chemistry.yonsei.ac.kr/chemistry/board/job.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice_2",
+                                "name": "대학원 공지사항",
+                                "url": "http://chemistry.yonsei.ac.kr/chemistry/board/notice_graduate.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_bst",
+                        "name": "생명과학기술학부",
+                        "url": "https://bst.yonsei.ac.kr",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "공지사항(학부)",
+                                "url": "https://bst.yonsei.ac.kr/ymbst21/board/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice_2",
+                                "name": "공지사항(대학원)",
+                                "url": "https://bst.yonsei.ac.kr/ymbst21/board/notice__gg.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "career",
+                                "name": "교육/취업공고",
+                                "url": "https://bst.yonsei.ac.kr/ymbst21/board/recruit.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_pkg",
+                        "name": "패키징및물류학",
+                        "url": "http://pkg.yonsei.ac.kr",
+                        "boards": [
+                            {
+                                "id": "career",
+                                "name": "진로 및 취업",
+                                "url": "http://pkg.yonsei.ac.kr/pkg/undergraduate/career.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice",
+                                "name": "공지사항(학부)",
+                                "url": "http://pkg.yonsei.ac.kr/pkg/notice/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice_2",
+                                "name": "공지사항(대학원)",
+                                "url": "http://pkg.yonsei.ac.kr/pkg/notice_g.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "career_2",
+                                "name": "취업게시판",
+                                "url": "http://pkg.yonsei.ac.kr/pkg/notice/jobs.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_envi",
+                        "name": "환경에너지공학부",
+                        "url": "http://envi.yonsei.ac.kr/",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "http://envi.yonsei.ac.kr/envi/graduate/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "notice_2",
+                                "name": "공지사항",
+                                "url": "http://envi.yonsei.ac.kr/envi/community/notice.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "career",
+                                "name": "취업 & 공모전",
+                                "url": "http://envi.yonsei.ac.kr/envi/community/jobs.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "yonsei_aisemi",
+                        "name": "AI반도체학부",
+                        "url": "https://aisemi.yonsei.ac.kr",
+                        "boards": [
+                            {
+                                "id": "notice",
+                                "name": "공지사항",
+                                "url": "https://aisemi.yonsei.ac.kr/aisemi/board/data.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            },
+                            {
+                                "id": "career",
+                                "name": "교육/취업정보",
+                                "url": "https://aisemi.yonsei.ac.kr/aisemi/board/edu.do",
+                                "row_selector": "tr:has(a.c-board-title)",
+                                "title_selector": "a.c-board-title",
+                                "date_selector": "td:nth-last-child(1)",
+                                "attr_name": "href"
+                            }
+                        ]
                     }
                 ]
             },
             {
-                "id": "yonsei_dhc",
-                "name": "디지털헬스케어학부",
-                "boards": [
+                "name": "소프트웨어디지털 헬스케어융합대학",
+                "departments": []
+            },
+            {
+                "name": "RC융합대학",
+                "departments": [
                     {
-                        "id": "academic",
-                        "name": "공지사항",
-                        "url": "https://dhc.yonsei.ac.kr/dhc/community/academic_notice.do",
-                        "row_selector": "tr:has(a.c-board-title)",
-                        "title_selector": "a.c-board-title",
-                        "date_selector": "td:nth-last-child(1)",
-                        "attr_name": "href"
+                        "id": "yonsei_글로벌엘리트학부",
+                        "name": "글로벌엘리트학부",
+                        "url": "NOT_FOUND",
+                        "boards": []
+                    },
+                    {
+                        "id": "yonsei_반도체시스템공학부",
+                        "name": "반도체시스템공학부",
+                        "url": "NOT_FOUND",
+                        "boards": []
                     }
                 ]
+            },
+            {
+                "name": "원주의과대학",
+                "departments": []
+            },
+            {
+                "name": "원주간호대학",
+                "departments": []
             }
         ]
     }
