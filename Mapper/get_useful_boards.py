@@ -1,7 +1,7 @@
 # Mapper/get_useful_boards.py
 
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import re
 import json
@@ -99,6 +99,7 @@ def discover_boards(dept_info, dept_url):
         links = soup.find_all('a', href=True)
         seen_urls = set()
         id_counts = {} # To handle duplicate IDs
+        dept_domain = urlparse(dept_url).netloc.lower()
 
         for link in links:
             text = link.get_text(strip=True)
@@ -107,6 +108,10 @@ def discover_boards(dept_info, dept_url):
 
             full_url = urljoin(dept_url, href)
             if full_url in seen_urls or 'javascript' in href or '#' in href: continue
+            
+            # Ignore if subdomain is different
+            link_domain = urlparse(full_url).netloc.lower()
+            if link_domain != dept_domain: continue
 
             for key, meta in KEYWORD_MAP.items():
                 if key in text or (re.search(r'notice|scholar|academic', href.lower()) and key in text):
