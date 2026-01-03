@@ -92,6 +92,7 @@ def discover_boards(dept_info, dept_url):
 
         # Step 1: Look for Sitemap link
         target_soup = soup
+        used_sitemap = False
         sitemap_link = soup.find("a", string=re.compile(r"사이트맵|Sitemap", re.I))
 
         if sitemap_link and sitemap_link.get("href"):
@@ -99,67 +100,18 @@ def discover_boards(dept_info, dept_url):
             try:
                 s_res = requests.get(sitemap_url, headers=headers, timeout=5)
                 target_soup = BeautifulSoup(s_res.text, "html.parser")
+                used_sitemap = True
                 print(f"  -> Found Sitemap: {sitemap_url}")
             except:
                 print(f"  -> Failed to access Sitemap, falling back to homepage.")
 
-        # Step 2: Detect CMS and get selectors
-        cms_selectors = detect_cms_and_get_selectors(target_soup, dept_url)
+        # Try to extract boards from target_soup (sitemap or homepage)
+        boards = extract_boards_from_soup(target_soup, dept_url, dept_info)
 
-        if cms_selectors is None:
-            manual_review_needed.append(
-                {
-                    "campus": dept_info["campus"],
-                    "name": dept_info["name"],
-                    "url": dept_url,
-                    "reason": "Unknown CMS Structure",
-                }
-            )
-            return []
-
-        # Step 3: Extract board links
-        links = target_soup.find_all("a", href=True)
-        seen_urls = set()
-        id_counts = {}
-        dept_domain = urlparse(dept_url).netloc.lower()
-
-        for link in links:
-            text = link.get_text(strip=True)
-            href = link["href"]
-            if not is_valid_board_link(text, href):
-                continue
-
-            full_url = urljoin(dept_url, href)
-            if full_url in seen_urls or "javascript" in href or "#" in href:
-                continue
-
-            # Ignore if subdomain is different
-            link_domain = urlparse(full_url).netloc.lower()
-            if link_domain != dept_domain:
-                continue
-
-            for key, meta in KEYWORD_MAP.items():
-                if key in text or (
-                    re.search(r"notice|scholar|academic", href.lower()) and key in text
-                ):
-                    base_id = meta["id"]
-                    id_counts[base_id] = id_counts.get(base_id, 0) + 1
-                    final_id = (
-                        f"{base_id}_{id_counts[base_id]}"
-                        if id_counts[base_id] > 1
-                        else base_id
-                    )
-
-                    boards.append(
-                        {
-                            "id": final_id,
-                            "name": text if text else meta["name"],
-                            "url": full_url,
-                            **cms_selectors,
-                        }
-                    )
-                    seen_urls.add(full_url)
-                    break
+        # If sitemap was used but no boards found, fallback to homepage
+        if used_sitemap and len(boards) == 0:
+            print(f"  -> Sitemap yielded no results, falling back to homepage.")
+            boards = extract_boards_from_soup(soup, dept_url, dept_info)
 
     except Exception as e:
         manual_review_needed.append(
@@ -170,6 +122,71 @@ def discover_boards(dept_info, dept_url):
                 "reason": f"Connection Error: {str(e)}",
             }
         )
+
+    return boards
+
+
+# Extract boards from a BeautifulSoup object
+def extract_boards_from_soup(target_soup, dept_url, dept_info):
+    boards = []
+
+    # Detect CMS and get selectors
+    cms_selectors = detect_cms_and_get_selectors(target_soup, dept_url)
+
+    if cms_selectors is None:
+        manual_review_needed.append(
+            {
+                "campus": dept_info["campus"],
+                "name": dept_info["name"],
+                "url": dept_url,
+                "reason": "Unknown CMS Structure",
+            }
+        )
+        return []
+
+    # Extract board links
+    links = target_soup.find_all("a", href=True)
+    seen_urls = set()
+    id_counts = {}
+    dept_domain = urlparse(dept_url).netloc.lower()
+
+    for link in links:
+        text = link.get_text(strip=True)
+        href = link["href"]
+        if not is_valid_board_link(text, href):
+            continue
+
+        full_url = urljoin(dept_url, href)
+        if full_url in seen_urls or "javascript" in href or "#" in href:
+            continue
+
+        # Ignore if subdomain is different
+        link_domain = urlparse(full_url).netloc.lower()
+        if link_domain != dept_domain:
+            continue
+
+        for key, meta in KEYWORD_MAP.items():
+            if key in text or (
+                re.search(r"notice|scholar|academic", href.lower()) and key in text
+            ):
+                base_id = meta["id"]
+                id_counts[base_id] = id_counts.get(base_id, 0) + 1
+                final_id = (
+                    f"{base_id}_{id_counts[base_id]}"
+                    if id_counts[base_id] > 1
+                    else base_id
+                )
+
+                boards.append(
+                    {
+                        "id": final_id,
+                        "name": text if text else meta["name"],
+                        "url": full_url,
+                        **cms_selectors,
+                    }
+                )
+                seen_urls.add(full_url)
+                break
 
     return boards
 
