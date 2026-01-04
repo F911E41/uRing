@@ -1,0 +1,20 @@
+[package]
+name = "Mapper"
+version = "0.1.0"
+edition = "2024"
+description = "Crawls Yonsei University website to discover announcement boards"
+
+[dependencies]
+# HTTP client and HTML parsing
+reqwest = { version = "0.12", features = ["blocking"] }
+
+# Serialization and error handling
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# HTML parsing and web scraping
+scraper = "0.22"
+
+# Utility libraries
+thiserror = "2.0"
+regex = "1.11"
