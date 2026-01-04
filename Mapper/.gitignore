@@ -5,4 +5,4 @@
 Cargo.lock
 
 # Mapped data
-/data/*.json
+/data/output/*.json

@@ -1,87 +1,55 @@
-//! Configuration constants for the Mapper.
+//! Configuration loading utilities.
 
-use std::path::PathBuf;
+use std::path::Path;
 
-/// Campus information (URL, name)
-pub const CAMPUSES: &[(&str, &str)] = &[
-    ("https://www.yonsei.ac.kr/sc/186/subview.do", "신촌캠퍼스"),
-    (
-        "https://mirae.yonsei.ac.kr/wj/1413/subview.do",
-        "미래캠퍼스",
-    ),
-];
+use crate::error::{MapperError, Result};
+use crate::models::{Config, Seed};
+use crate::utils::fs::load_toml;
 
-/// Board keyword mappings
-pub struct KeywordMeta {
-    pub id: &'static str,
-    pub name: &'static str,
+/// Load configuration from a TOML file
+pub fn load_config(path: &Path) -> Result<Config> {
+    match load_toml(path) {
+        Ok(config) => Ok(config),
+        Err(e) => {
+            eprintln!("Warning: Failed to load config from {:?}: {}", path, e);
+            eprintln!("Using default configuration.");
+            Ok(Config::default())
+        }
+    }
 }
 
-pub const KEYWORD_MAP: &[(&str, KeywordMeta)] = &[
-    (
-        "학부공지",
-        KeywordMeta {
-            id: "academic",
-            name: "학사공지",
-        },
-    ),
-    (
-        "대학원공지",
-        KeywordMeta {
-            id: "grad_notice",
-            name: "대학원공지",
-        },
-    ),
-    (
-        "장학",
-        KeywordMeta {
-            id: "scholarship",
-            name: "장학공지",
-        },
-    ),
-    (
-        "취업",
-        KeywordMeta {
-            id: "career",
-            name: "취업/진로",
-        },
-    ),
-    (
-        "공지사항",
-        KeywordMeta {
-            id: "notice",
-            name: "일반공지",
-        },
-    ),
-    (
-        "학사공지",
-        KeywordMeta {
-            id: "academic",
-            name: "학사공지",
-        },
-    ),
-];
-
-/// HTTP request timeout in seconds
-pub const REQUEST_TIMEOUT_SECS: u64 = 10;
-
-/// User agent string
-pub const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-
-/// Get the data directory path
-pub fn data_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data")
+/// Load seed data from a TOML file
+pub fn load_seed(path: &Path) -> Result<Seed> {
+    match load_toml(path) {
+        Ok(seed) => Ok(seed),
+        Err(e) => {
+            eprintln!("Warning: Failed to load seed from {:?}: {}", path, e);
+            eprintln!("Using default seed data.");
+            Ok(Seed::default())
+        }
+    }
 }
 
-/// Output file paths
-pub fn departments_file() -> PathBuf {
-    data_dir().join("yonsei_departments.json")
-}
+/// Load both config and seed, returning useful error messages
+pub fn load_all(base_path: &Path) -> Result<(Config, Seed)> {
+    let config_path = base_path.join("data/config.toml");
+    let config = load_config(&config_path)?;
 
-pub fn departments_boards_file() -> PathBuf {
-    data_dir().join("yonsei_departments_boards.json")
-}
+    let seed_path = config.seed_path(base_path);
+    let seed = load_seed(&seed_path)?;
 
-pub fn manual_review_file() -> PathBuf {
-    data_dir().join("manual_review_needed.json")
+    // Validate seed has at least some data
+    if seed.campuses.is_empty() {
+        return Err(MapperError::Config(
+            "No campuses defined in seed data".to_string(),
+        ));
+    }
+
+    if seed.keywords.is_empty() {
+        return Err(MapperError::Config(
+            "No keywords defined in seed data".to_string(),
+        ));
+    }
+
+    Ok((config, seed))
 }

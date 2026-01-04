@@ -7,24 +7,46 @@ Crawls Yonsei University website to discover announcement boards for each depart
 ```shell
 Mapper/
 ├── Cargo.toml
-├── src/
-│   ├── main.rs           # Entry point
-│   ├── config.rs         # Configuration & constants
-│   ├── error.rs          # Error types
-│   ├── http.rs           # HTTP utilities
-│   ├── models.rs         # Data structures
-│   ├── selectors.rs      # CMS detection & selectors
-│   └── crawlers/
-│       ├── mod.rs
-│       ├── departments.rs  # Campus/college/department crawler
-│       └── boards.rs       # Board discovery logic
-├── data/                 # Output directory
-└── README.md
+├── data/
+│   ├── config.toml         # Runtime configuration
+│   ├── seed.toml           # Campuses, keywords, CMS patterns
+│   └── result/             # Output files
+└── src/
+    ├── main.rs             # Entry point
+    ├── config.rs           # Configuration loading
+    ├── error.rs            # Error types
+    ├── models/
+    │   ├── mod.rs
+    │   ├── config.rs       # Config model structs
+    │   ├── discovery.rs    # Discovery result structs
+    │   └── seed.rs         # Seed data structs
+    ├── services/
+    │   ├── mod.rs
+    │   ├── boards.rs       # Board discovery service
+    │   ├── departments.rs  # Department crawler service
+    │   └── selectors.rs    # CMS selector detection
+    └── utils/
+        ├── mod.rs
+        ├── fs.rs           # File system utilities
+        ├── http.rs         # HTTP client utilities
+        └── url.rs          # URL manipulation
 ```
 
-## Setup
+## Configuration
 
-Ensure you have Rust installed, then build:
+### `data/config.toml`
+
+Runtime settings for HTTP, paths, discovery rules, and logging.
+
+### `data/seed.toml`
+
+Seed data including:
+
+- **Campuses**: URLs and names of university campuses to crawl
+- **Keywords**: Board name patterns to identify (e.g., "공지사항", "장학")
+- **CMS Patterns**: CSS selectors for different CMS types
+
+## Setup
 
 ```bash
 cargo build --release
@@ -37,8 +59,6 @@ cargo run --release
 ```
 
 ## Output Files
-
-Generated in the `data/` directory:
 
 | File | Description |
 | ---- | ----------- |

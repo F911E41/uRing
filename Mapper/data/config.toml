@@ -1,0 +1,44 @@
+# Mapper Configuration
+
+[http]
+# User agent string for HTTP requests
+user_agent = "Mozilla/5.0 (compatible; uRing Mapper/0.1)"
+
+# Request timeout in seconds
+timeout_secs = 10
+
+# Timeout for sitemap/secondary requests
+sitemap_timeout_secs = 5
+
+[paths]
+# Seed configuration file (campuses and keywords)
+seed = "data/seed.toml"
+
+# Output directory
+output_dir = "data/output"
+
+# Output file names
+departments_file = "yonsei_departments.json"
+departments_boards_file = "yonsei_departments_boards.json"
+manual_review_file = "manual_review_needed.json"
+
+[discovery]
+# Maximum text length for board link names (longer = likely article title)
+max_board_name_length = 20
+
+# Patterns that indicate an article view (not a board listing)
+blacklist_patterns = [
+    "articleNo",
+    "article_no",
+    "mode=view",
+    "seq",
+    "view.do",
+    "board_seq",
+]
+
+[logging]
+# Log level: error, warn, info, debug
+level = "info"
+
+# Show detailed progress
+show_progress = true

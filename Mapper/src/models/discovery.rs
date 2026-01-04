@@ -1,8 +1,15 @@
-//! Data models for the Mapper.
+//! Discovery result model structures.
 
 use serde::{Deserialize, Serialize};
 
-use crate::selectors::CmsSelectors;
+/// CSS selectors for scraping a board
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CmsSelectors {
+    pub row_selector: String,
+    pub title_selector: String,
+    pub date_selector: String,
+    pub attr_name: String,
+}
 
 /// Represents a notice board
 #[derive(Debug, Clone, Serialize, Deserialize)]

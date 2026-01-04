@@ -1,17 +1,18 @@
-//! HTTP utilities for fetching web pages.
+//! HTTP client utilities.
+
+use std::time::Duration;
 
 use reqwest::blocking::Client;
 use scraper::Html;
-use std::time::Duration;
 
-use crate::config::{REQUEST_TIMEOUT_SECS, USER_AGENT};
 use crate::error::Result;
+use crate::models::HttpConfig;
 
 /// Create a configured HTTP client
-pub fn create_client() -> Result<Client> {
+pub fn create_client(config: &HttpConfig) -> Result<Client> {
     Ok(Client::builder()
-        .user_agent(USER_AGENT)
-        .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
+        .user_agent(&config.user_agent)
+        .timeout(Duration::from_secs(config.timeout_secs))
         .build()?)
 }
 

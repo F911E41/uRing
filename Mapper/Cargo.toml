@@ -1,20 +1,23 @@
 [package]
-name = "Mapper"
+name = "mapper"
 version = "0.1.0"
 edition = "2024"
 description = "Crawls Yonsei University website to discover announcement boards"
 
 [dependencies]
-# HTTP client and HTML parsing
+# HTTP client
 reqwest = { version = "0.12", features = ["blocking"] }
 
-# Serialization and error handling
+# Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
-# HTML parsing and web scraping
+# TOML parsing
+toml = "0.8"
+
+# HTML parsing
 scraper = "0.22"
 
-# Utility libraries
+# Utilities
 thiserror = "2.0"
 regex = "1.11"

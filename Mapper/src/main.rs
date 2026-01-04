@@ -4,38 +4,48 @@
 //! boards for each department.
 
 mod config;
-mod crawlers;
 mod error;
-mod http;
 mod models;
-mod selectors;
+mod services;
+mod utils;
 
-use std::fs;
+use std::path::PathBuf;
 
-use config::{data_dir, departments_boards_file, departments_file, manual_review_file};
-use crawlers::{crawl_all_campuses, discover_boards};
 use error::Result;
-use http::create_client;
 use models::ManualReviewItem;
+use services::{BoardDiscoveryService, DepartmentCrawler, SelectorDetector};
 
-fn save_json<T: serde::Serialize>(path: &std::path::Path, data: &T) -> Result<()> {
-    let json = serde_json::to_string_pretty(data)?;
-    fs::write(path, json)?;
-    Ok(())
+use utils::fs::{ensure_dir, save_json};
+use utils::http::create_client;
+
+fn get_base_path() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
 
 fn main() -> Result<()> {
-    // Ensure data directory exists
-    fs::create_dir_all(data_dir())?;
+    let base_path = get_base_path();
 
-    let client = create_client()?;
+    // Load configuration
+    println!("Loading configuration...");
+    let (config, seed) = config::load_all(&base_path)?;
+
+    println!("  Loaded {} campuses", seed.campuses.len());
+    println!("  Loaded {} keywords", seed.keywords.len());
+    println!("  Loaded {} CMS patterns", seed.cms_patterns.len());
+
+    // Ensure output directory exists
+    ensure_dir(&config.output_dir(&base_path))?;
+
+    // Create HTTP client
+    let client = create_client(&config.http)?;
 
     // Step 1: Crawl departments
-    println!("{}", "=".repeat(60));
-    println!("Step 1: Crawling Yonsei departments...");
+    println!("\n{}", "=".repeat(60));
+    println!("Step 1: Crawling departments...");
     println!("{}", "=".repeat(60));
 
-    let mut campuses = crawl_all_campuses(&client)?;
+    let crawler = DepartmentCrawler::new(&client);
+    let mut campuses = crawler.crawl_all(&seed.campuses)?;
 
     if campuses.is_empty() {
         println!("Failed to crawl any campus. Exiting.");
@@ -43,13 +53,18 @@ fn main() -> Result<()> {
     }
 
     // Save initial department data
-    save_json(&departments_file(), &campuses)?;
-    println!("\nSaved department data to {:?}", departments_file());
+    let dept_path = config.departments_path(&base_path);
+    save_json(&dept_path, &campuses)?;
+    println!("\nSaved department data to {:?}", dept_path);
 
     // Step 2: Discover boards
     println!("\n{}", "=".repeat(60));
-    println!("Step 2: Discovering boards for each department...");
+    println!("Step 2: Discovering boards...");
     println!("{}", "=".repeat(60));
+
+    let selector_detector = SelectorDetector::new(seed.cms_patterns);
+    let board_service =
+        BoardDiscoveryService::new(&client, seed.keywords, selector_detector, &config);
 
     let mut manual_review_items: Vec<ManualReviewItem> = Vec::new();
 
@@ -58,9 +73,11 @@ fn main() -> Result<()> {
 
         for college in &mut campus.colleges {
             for dept in &mut college.departments {
-                println!("  {}...", dept.name);
+                if config.logging.show_progress {
+                    println!("  {}...", dept.name);
+                }
 
-                let result = discover_boards(&client, &campus.campus, &dept.name, &dept.url);
+                let result = board_service.discover(&campus.campus, &dept.name, &dept.url);
 
                 dept.boards = result.boards;
 
@@ -68,7 +85,7 @@ fn main() -> Result<()> {
                     manual_review_items.push(review_item);
                 }
 
-                if !dept.boards.is_empty() {
+                if !dept.boards.is_empty() && config.logging.show_progress {
                     println!("    Found {} board(s)", dept.boards.len());
                 }
             }
@@ -76,17 +93,16 @@ fn main() -> Result<()> {
     }
 
     // Save results
-    save_json(&departments_boards_file(), &campuses)?;
-    println!(
-        "\nSaved departments with boards to {:?}",
-        departments_boards_file()
-    );
+    let boards_path = config.departments_boards_path(&base_path);
+    save_json(&boards_path, &campuses)?;
+    println!("\nSaved departments with boards to {:?}", boards_path);
 
-    save_json(&manual_review_file(), &manual_review_items)?;
+    let review_path = config.manual_review_path(&base_path);
+    save_json(&review_path, &manual_review_items)?;
     println!(
         "Saved {} items needing manual review to {:?}",
         manual_review_items.len(),
-        manual_review_file()
+        review_path
     );
 
     // Summary
