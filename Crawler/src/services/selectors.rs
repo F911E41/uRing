@@ -20,11 +20,19 @@ impl SelectorDetector {
     }
 
     /// Detect CMS type and return appropriate selectors.
+    /// Returns the selectors and the matched pattern name.
     pub fn detect(&self, document: &Html, url: &str) -> Option<CmsSelectors> {
         let html_lower = document.html().to_lowercase();
 
         self.patterns.iter().find_map(|pattern| {
             if self.matches_pattern(pattern, url, &html_lower) {
+                // Log the detected CMS pattern name for debugging
+                if cfg!(debug_assertions) {
+                    eprintln!(
+                        "[DEBUG] Detected CMS pattern: '{}' for URL: {}",
+                        pattern.name, url
+                    );
+                }
                 Some(CmsSelectors::from_pattern(
                     &pattern.row_selector,
                     &pattern.title_selector,

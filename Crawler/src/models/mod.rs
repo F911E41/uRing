@@ -13,10 +13,7 @@ mod selectors;
 
 // Re-export all public types
 pub use campus::{Board, Campus, College, Department, DepartmentRef};
-pub use config::{
-    CleaningConfig, Config, CrawlerConfig, DiscoveryConfig, LocaleConfig, LoggingConfig,
-    OutputConfig, PathsConfig, Replacement,
-};
+pub use config::{Config, CrawlerConfig, DiscoveryConfig, LocaleConfig};
 pub use notice::Notice;
 pub use seed::{CampusInfo, CmsPattern, KeywordMapping, Seed};
 pub use selectors::CmsSelectors;

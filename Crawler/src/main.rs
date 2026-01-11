@@ -18,11 +18,15 @@ mod utils;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use chrono::{Datelike, Utc};
 use clap::{Parser, Subcommand};
 
-use crate::error::Result;
+use crate::config::load_all;
+use crate::error::{AppError, Result};
 use crate::models::{Campus, Config, LocaleConfig, ManualReviewItem, Notice, Seed};
 use crate::services::{BoardDiscoveryService, DepartmentCrawler, NoticeCrawler, SelectorDetector};
+use crate::storage::paths::{monthly_archive_key, monthly_prefix, new_notices_key};
+use crate::storage::{LocalStorage, NoticeStorage};
 use crate::utils::{
     fs::{ensure_dir, save_json},
     http::create_client,
@@ -66,6 +70,27 @@ enum Command {
         #[arg(short, long)]
         output: Option<String>,
     },
+    /// Validate configuration and seed data
+    Validate,
+    /// Archive new notices to monthly storage
+    Archive,
+    /// Load notices from storage
+    Load {
+        /// Load from "new" storage or specific month (YYYY-MM format)
+        #[arg(long, default_value = "new")]
+        from: String,
+    },
+}
+
+/// Initialize logging based on configuration level.
+fn init_logging(level: &str) {
+    match level {
+        "debug" => eprintln!("[DEBUG] Logging initialized at debug level"),
+        "info" => {} // Default, no message
+        "warn" => eprintln!("[WARN] Logging initialized at warn level"),
+        "error" => eprintln!("[ERROR] Logging initialized at error level"),
+        _ => eprintln!("[WARN] Unknown log level '{}', using default", level),
+    }
 }
 
 /// Main entry point
@@ -76,6 +101,9 @@ async fn main() -> Result<()> {
 
     let mut config = Config::load_or_default(&cli.config);
     let locale = LocaleConfig::load_or_default(&cli.locale);
+
+    // Initialize logging based on config level
+    init_logging(&config.logging.level);
 
     if cli.quiet {
         config.output.console_enabled = false;
@@ -93,9 +121,82 @@ async fn main() -> Result<()> {
             }
             run_crawler(&config, &locale, &base_path).await?;
         }
+        Command::Validate => run_validate(&base_path)?,
+        Command::Archive => run_archive(&config).await?,
+        Command::Load { from } => run_load(&config, &from).await?,
     }
 
     Ok(())
+}
+
+/// Archive new notices to monthly storage.
+async fn run_archive(config: &Config) -> Result<()> {
+    println!("📦 Archiving notices...");
+    let storage = LocalStorage::new(&config.paths.output);
+    let metadata = storage.rotate_to_archive().await?;
+
+    println!("✅ Archived {} notices", metadata.notice_count);
+    println!("   Location: {}", metadata.location);
+    println!("   Timestamp: {}", metadata.timestamp);
+
+    Ok(())
+}
+
+/// Load notices from storage.
+async fn run_load(config: &Config, from: &str) -> Result<()> {
+    let storage = LocalStorage::new(&config.paths.output);
+
+    let notices = if from == "new" {
+        println!("📂 Loading new notices...");
+        storage.load_new().await?
+    } else {
+        // Parse YYYY-MM format
+        let parts: Vec<&str> = from.split('-').collect();
+        if parts.len() != 2 {
+            return Err(AppError::validation(
+                "Invalid date format. Use YYYY-MM (e.g., 2025-01)",
+            ));
+        }
+        let year: i32 = parts[0]
+            .parse()
+            .map_err(|_| AppError::validation("Invalid year"))?;
+        let month: u32 = parts[1]
+            .parse()
+            .map_err(|_| AppError::validation("Invalid month"))?;
+
+        println!("📂 Loading notices from {}-{:02}...", year, month);
+        storage.load_archive(year, month).await?
+    };
+
+    println!("✅ Loaded {} notices", notices.len());
+    for notice in &notices {
+        println!("   - {} [{}]", notice.title, notice.date);
+    }
+
+    Ok(())
+}
+
+/// Validate configuration and seed data using load_all.
+fn run_validate(base_path: &PathBuf) -> Result<()> {
+    println!("🔍 Validating configuration and seed data...");
+
+    match load_all(base_path) {
+        Ok((config, seed)) => {
+            println!("✅ Configuration loaded successfully:");
+            println!("   - User agent: {}", config.crawler.user_agent);
+            println!("   - Timeout: {}s", config.crawler.timeout_secs);
+            println!("   - Max concurrent: {}", config.crawler.max_concurrent);
+            println!("✅ Seed data validated:");
+            println!("   - Campuses: {}", seed.campuses.len());
+            println!("   - Keywords: {}", seed.keywords.len());
+            println!("   - CMS patterns: {}", seed.cms_patterns.len());
+            Ok(())
+        }
+        Err(e) => {
+            eprintln!("❌ Validation failed: {}", e);
+            Err(e)
+        }
+    }
 }
 
 /// Run the mapper to discover departments and boards.
@@ -104,8 +205,13 @@ async fn run_mapper(config: &Config, base_path: &PathBuf) -> Result<()> {
 
     let seed_path = config.seed_path(base_path);
     println!("   Loading seed data from {seed_path:?}");
-    let seed = Seed::load(&seed_path)?;
-    println!("   Loaded {} campuses", seed.campuses.len());
+    let seed = Seed::load(&seed_path)
+        .map_err(|e| AppError::config(format!("Failed to load seed data: {}", e)))?;
+
+    // Validate seed data
+    seed.validate()
+        .map_err(|e| AppError::validation(format!("Seed validation failed: {}", e)))?;
+    println!("   Loaded and validated {} campuses", seed.campuses.len());
 
     ensure_dir(&config.output_dir(base_path))?;
     let client = create_client(&config.crawler)?;
@@ -195,12 +301,16 @@ async fn run_crawler(config: &Config, locale: &LocaleConfig, base_path: &PathBuf
 
     let sitemap_path = config.departments_boards_path(base_path);
     if !sitemap_path.exists() {
-        eprintln!("❌ Sitemap not found at {sitemap_path:?}.");
-        eprintln!("   Please run 'uRing map' first to generate it.");
-        std::process::exit(1);
+        // Use locale.errors for error message
+        let error_msg = format!(
+            "{}: {:?}. Please run 'uRing map' first.",
+            locale.errors.config_load_failed, sitemap_path
+        );
+        return Err(AppError::discovery(error_msg));
     }
 
-    let campuses = Campus::load_all(&sitemap_path)?;
+    let campuses =
+        Campus::load_all(&sitemap_path).map_err(|e| AppError::crawl("loading sitemap", e))?;
     let total_depts: usize = campuses.iter().map(|c| c.department_count()).sum();
     let total_boards: usize = campuses.iter().map(|c| c.board_count()).sum();
 
@@ -220,6 +330,29 @@ async fn run_crawler(config: &Config, locale: &LocaleConfig, base_path: &PathBuf
 
     print_notices(&notices, config, locale);
     save_notices(&notices, config, locale)?;
+
+    // Store notices using LocalStorage (demonstrates NoticeStorage trait usage)
+    let storage = LocalStorage::new(&config.paths.output);
+    let metadata = storage.store_new(&notices).await?;
+    if config.logging.show_progress {
+        println!(
+            "\n💾 Storage: {} notices saved to {}",
+            metadata.notice_count, metadata.location
+        );
+    }
+
+    // Display S3 storage paths that would be used in Lambda mode
+    if config.logging.show_progress {
+        let bucket_prefix = "uRing";
+        let now = Utc::now();
+        println!("\n📂 S3 Storage Paths (for Lambda deployment):");
+        println!("   New notices: {}", new_notices_key(bucket_prefix));
+        println!("   Archive: {}", monthly_archive_key(bucket_prefix, now));
+        println!(
+            "   Monthly prefix: {}",
+            monthly_prefix(bucket_prefix, now.year(), now.month())
+        );
+    }
 
     Ok(())
 }

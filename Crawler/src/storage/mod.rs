@@ -9,8 +9,9 @@
 pub mod s3;
 
 use std::future::Future;
+use std::path::PathBuf;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Datelike, Utc};
 
 use crate::error::Result;
 use crate::models::Notice;
@@ -24,6 +25,17 @@ pub struct StorageMetadata {
     pub timestamp: DateTime<Utc>,
     /// Storage location (path or S3 key)
     pub location: String,
+}
+
+impl StorageMetadata {
+    /// Create new storage metadata
+    pub fn new(notice_count: usize, location: impl Into<String>) -> Self {
+        Self {
+            notice_count,
+            timestamp: Utc::now(),
+            location: location.into(),
+        }
+    }
 }
 
 /// Trait for notice storage backends.
@@ -44,6 +56,91 @@ pub trait NoticeStorage {
         year: i32,
         month: u32,
     ) -> impl Future<Output = Result<Vec<Notice>>> + Send;
+}
+
+/// Local filesystem storage implementation.
+pub struct LocalStorage {
+    base_path: PathBuf,
+}
+
+impl LocalStorage {
+    /// Create a new local storage with the given base path.
+    pub fn new(base_path: impl Into<PathBuf>) -> Self {
+        Self {
+            base_path: base_path.into(),
+        }
+    }
+
+    fn new_notices_path(&self) -> PathBuf {
+        self.base_path.join("New").join("notices.json")
+    }
+
+    fn archive_path(&self, year: i32, month: u32) -> PathBuf {
+        self.base_path
+            .join(format!("{:04}-{:02}", year, month))
+            .join("notices.json")
+    }
+}
+
+impl NoticeStorage for LocalStorage {
+    async fn store_new(&self, notices: &[Notice]) -> Result<StorageMetadata> {
+        let path = self.new_notices_path();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let json = serde_json::to_string_pretty(notices)?;
+        std::fs::write(&path, json)?;
+        Ok(StorageMetadata::new(
+            notices.len(),
+            path.display().to_string(),
+        ))
+    }
+
+    async fn rotate_to_archive(&self) -> Result<StorageMetadata> {
+        let new_path = self.new_notices_path();
+        if !new_path.exists() {
+            return Ok(StorageMetadata::new(0, "No notices to rotate"));
+        }
+
+        let notices = self.load_new().await?;
+        let now = Utc::now();
+        let archive_path = self.archive_path(now.year(), now.month());
+
+        if let Some(parent) = archive_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+
+        let json = serde_json::to_string_pretty(&notices)?;
+        std::fs::write(&archive_path, json)?;
+
+        // Remove the "New" file after archiving
+        std::fs::remove_file(&new_path)?;
+
+        Ok(StorageMetadata::new(
+            notices.len(),
+            archive_path.display().to_string(),
+        ))
+    }
+
+    async fn load_new(&self) -> Result<Vec<Notice>> {
+        let path = self.new_notices_path();
+        if !path.exists() {
+            return Ok(Vec::new());
+        }
+        let content = std::fs::read_to_string(&path)?;
+        let notices: Vec<Notice> = serde_json::from_str(&content)?;
+        Ok(notices)
+    }
+
+    async fn load_archive(&self, year: i32, month: u32) -> Result<Vec<Notice>> {
+        let path = self.archive_path(year, month);
+        if !path.exists() {
+            return Ok(Vec::new());
+        }
+        let content = std::fs::read_to_string(&path)?;
+        let notices: Vec<Notice> = serde_json::from_str(&content)?;
+        Ok(notices)
+    }
 }
 
 /// S3 path utilities.
