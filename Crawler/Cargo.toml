@@ -6,6 +6,18 @@ description = "Crawls Yonsei University website to discover announcement boards"
 # Set Rust edition to 2024
 edition = "2024"
 
+[[bin]]
+name = "crawler"
+path = "src/main.rs"
+
+[[bin]]
+name = "lambda"
+path = "src/lambda_main.rs"
+
+[features]
+default = []
+lambda = ["lambda_runtime", "aws-config", "aws-sdk-s3"]
+
 [dependencies]
 # Asynchronous runtime
 tokio = { version = "^1", features = ["rt-multi-thread", "macros", "time"] }
@@ -40,6 +52,18 @@ thiserror = "^2.0"
 
 # Regular expressions
 regex = "^1.1"
+
+# Date/time handling
+chrono = { version = "^0.4", features = ["serde"] }
+
+# AWS SDK (optional, for Lambda deployment)
+lambda_runtime = { version = "^0.13", optional = true }
+aws-config = { version = "^1.6", optional = true }
+aws-sdk-s3 = { version = "^1.91", optional = true }
+
+# Tracing for Lambda
+tracing = "^0.1"
+tracing-subscriber = { version = "^0.3", features = ["env-filter", "json"] }
 
 [dev-dependencies]
 tempfile = "3.24.0"

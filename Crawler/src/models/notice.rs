@@ -1,9 +1,9 @@
 //! Notice data structure.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// A notice fetched from a board.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Notice {
     /// Campus name
     pub campus: String,

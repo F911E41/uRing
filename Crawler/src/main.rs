@@ -1,9 +1,16 @@
 // src/main.rs
+//! uRing: Integrated University Notice Crawler CLI
+//!
+//! This is the main CLI entry point for local development and testing.
+//! For AWS Lambda deployment, use the `lambda` binary with the `lambda` feature.
 
 mod config;
 mod error;
+#[cfg(feature = "lambda")]
+mod lambda;
 mod models;
 mod services;
+mod storage;
 mod utils;
 
 use std::path::PathBuf;
