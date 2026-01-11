@@ -58,12 +58,12 @@ struct Cli {
 /// CLI Commands
 #[derive(Subcommand, Debug)]
 enum Command {
-    /// Step 1: Discover departments and boards
+    /// Discover departments and boards
     Map {
         #[arg(long)]
         force: bool,
     },
-    /// Step 2: Fetch notices from discovered boards
+    /// Fetch notices from discovered boards
     Crawl {
         #[arg(long)]
         site_map: Option<String>,
@@ -217,7 +217,7 @@ async fn run_mapper(config: &Config, base_path: &PathBuf) -> Result<()> {
     let client = create_client(&config.crawler)?;
 
     println!(
-        "\\n{}\\nStep 1: Crawling departments...\\n{}",
+        "\\n{}\\nCrawling departments...\\n{}",
         "=".repeat(60),
         "=".repeat(60)
     );
