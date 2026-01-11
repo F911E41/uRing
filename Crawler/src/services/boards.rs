@@ -206,18 +206,15 @@ impl<'a> BoardDiscoveryService<'a> {
         &self,
         text: &str,
         url: &str,
-        document: &Html,
+        _document: &Html,
         default_selectors: &Option<CmsSelectors>,
         id_counts: &mut HashMap<String, usize>,
     ) -> Option<Board> {
         // Find matching keyword
         let mapping = self.keywords.iter().find(|m| text.contains(&m.keyword))?;
 
-        // Try to detect CMS selectors
-        let selectors = self
-            .selector_detector
-            .detect(document, url)
-            .or_else(|| default_selectors.clone())?;
+        // Try to detect CMS selectors by fetching the actual board page
+        let selectors = self.detect_board_selectors(url, default_selectors)?;
 
         // Generate unique ID
         let count = id_counts.entry(mapping.id.clone()).or_insert(0);
@@ -241,5 +238,32 @@ impl<'a> BoardDiscoveryService<'a> {
             url: url.to_string(),
             selectors,
         })
+    }
+
+    /// Detect CMS selectors by fetching the board page and analyzing its structure.
+    fn detect_board_selectors(
+        &self,
+        url: &str,
+        default_selectors: &Option<CmsSelectors>,
+    ) -> Option<CmsSelectors> {
+        // First try using default selectors if available
+        if let Some(selectors) = default_selectors {
+            return Some(selectors.clone());
+        }
+
+        // Fetch the actual board page to detect CMS
+        match fetch_page_with_timeout(self.client, url, self.sitemap_timeout) {
+            Ok(board_doc) => {
+                if let Some(selectors) = self.selector_detector.detect(&board_doc, url) {
+                    return Some(selectors);
+                }
+            }
+            Err(_) => {
+                // Failed to fetch, try with fallback selectors
+            }
+        }
+
+        // Return fallback selectors for common patterns
+        Some(CmsSelectors::fallback())
     }
 }

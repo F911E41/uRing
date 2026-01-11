@@ -57,4 +57,16 @@ impl CmsSelectors {
             link_selector: None,
         }
     }
+
+    /// Create fallback selectors that work with common board patterns.
+    /// These are generic selectors that should work with most table-based boards.
+    pub fn fallback() -> Self {
+        Self {
+            row_selector: "table tr:has(a)".to_string(),
+            title_selector: "a".to_string(),
+            date_selector: "td:last-child".to_string(),
+            attr_name: "href".to_string(),
+            link_selector: None,
+        }
+    }
 }

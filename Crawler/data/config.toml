@@ -31,12 +31,12 @@ output_dir = "data/output"
 
 # Output file names
 departments_file = "yonsei_departments.json"
-departments_boards_file = "yonsei_departments_boards.json"
+departments_boards_file = "siteMap.json"
 manual_review_file = "manual_review_needed.json"
 
 [cleaning]
 # Patterns to remove from titles
-title_remove_patterns = ["첨부파일", "공지 "]
+title_remove_patterns = ["첨부파일", "공지"]
 
 # Patterns to remove from dates
 date_remove_patterns = ["작성일"]

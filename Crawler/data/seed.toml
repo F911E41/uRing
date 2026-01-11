@@ -42,6 +42,26 @@ keyword = "공지사항"
 id = "notice"
 display_name = "일반공지"
 
+[[keywords]]
+keyword = "공지"
+id = "notice"
+display_name = "일반공지"
+
+[[keywords]]
+keyword = "진로"
+id = "career"
+display_name = "취업/진로"
+
+[[keywords]]
+keyword = "채용"
+id = "career"
+display_name = "채용정보"
+
+[[keywords]]
+keyword = "알림"
+id = "notice"
+display_name = "알림"
+
 # CMS selector patterns
 # Used to detect and scrape different CMS types
 
@@ -54,6 +74,25 @@ detect_html_contains = "c-board-title"
 row_selector = "tr:has(a.c-board-title)"
 title_selector = "a.c-board-title"
 date_selector = "td:nth-last-child(1)"
+link_attr = "href"
+
+[[cms_patterns]]
+name = "nx_cms"
+# NX CMS used by physics.yonsei.ac.kr and similar sites
+detect_html_contains = "yon_board"
+# Selectors for scraping
+row_selector = "table.bl_list tr:has(td.td-subject)"
+title_selector = "td.td-subject a"
+date_selector = "td.td-date"
+link_attr = "href"
+
+[[cms_patterns]]
+name = "nx_cms_alt"
+# Alternative NX CMS detection
+detect_html_contains = "NX CMS"
+row_selector = "table.bl_list tr:has(td.td-subject)"
+title_selector = "td.td-subject a"
+date_selector = "td.td-date"
 link_attr = "href"
 
 [[cms_patterns]]

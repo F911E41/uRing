@@ -10,6 +10,7 @@ mod lambda;
 
 mod config;
 mod error;
+mod logging;
 mod models;
 mod services;
 mod storage;
@@ -80,17 +81,12 @@ enum Command {
         #[arg(long, default_value = "new")]
         from: String,
     },
-}
-
-/// Initialize logging based on configuration level.
-fn init_logging(level: &str) {
-    match level {
-        "debug" => eprintln!("[DEBUG] Logging initialized at debug level"),
-        "info" => {} // Default, no message
-        "warn" => eprintln!("[WARN] Logging initialized at warn level"),
-        "error" => eprintln!("[ERROR] Logging initialized at error level"),
-        _ => eprintln!("[WARN] Unknown log level '{}', using default", level),
-    }
+    /// Run the full pipeline: map → crawl → archive
+    Pipeline {
+        /// Skip the map step (use existing sitemap)
+        #[arg(long)]
+        skip_map: bool,
+    },
 }
 
 /// Main entry point
@@ -102,8 +98,8 @@ async fn main() -> Result<()> {
     let mut config = Config::load_or_default(&cli.config);
     let locale = LocaleConfig::load_or_default(&cli.locale);
 
-    // Initialize logging based on config level
-    init_logging(&config.logging.level);
+    // Initialize logging system
+    logging::init(&locale, &config.logging.level);
 
     if cli.quiet {
         config.output.console_enabled = false;
@@ -111,7 +107,7 @@ async fn main() -> Result<()> {
     }
 
     match cli.command {
-        Command::Map { force: _ } => run_mapper(&config, &base_path).await?,
+        Command::Map { force: _ } => run_mapper(&config, &locale, &base_path).await?,
         Command::Crawl { site_map, output } => {
             if let Some(path) = site_map {
                 config.paths.departments_boards_file = path;
@@ -121,209 +117,348 @@ async fn main() -> Result<()> {
             }
             run_crawler(&config, &locale, &base_path).await?;
         }
-        Command::Validate => run_validate(&base_path)?,
-        Command::Archive => run_archive(&config).await?,
-        Command::Load { from } => run_load(&config, &from).await?,
+        Command::Validate => run_validate(&locale, &base_path)?,
+        Command::Archive => run_archive(&config, &locale).await?,
+        Command::Load { from } => run_load(&config, &locale, &from).await?,
+        Command::Pipeline { skip_map } => {
+            run_pipeline(&config, &locale, &base_path, skip_map).await?
+        }
     }
 
     Ok(())
 }
 
 /// Archive new notices to monthly storage.
-async fn run_archive(config: &Config) -> Result<()> {
-    println!("📦 Archiving notices...");
+async fn run_archive(config: &Config, locale: &LocaleConfig) -> Result<()> {
+    logging::header(&locale.messages.archive_starting);
+
     let storage = LocalStorage::new(&config.paths.output);
     let metadata = storage.rotate_to_archive().await?;
 
-    println!("✅ Archived {} notices", metadata.notice_count);
-    println!("   Location: {}", metadata.location);
-    println!("   Timestamp: {}", metadata.timestamp);
+    logging::success(
+        &locale
+            .messages
+            .archive_complete
+            .replace("{count}", &metadata.notice_count.to_string()),
+    );
+    logging::sub_item(
+        &locale
+            .messages
+            .archive_location
+            .replace("{path}", &metadata.location),
+    );
+    logging::sub_item(
+        &locale
+            .messages
+            .archive_timestamp
+            .replace("{time}", &metadata.timestamp.to_string()),
+    );
 
     Ok(())
 }
 
 /// Load notices from storage.
-async fn run_load(config: &Config, from: &str) -> Result<()> {
+async fn run_load(config: &Config, locale: &LocaleConfig, from: &str) -> Result<()> {
     let storage = LocalStorage::new(&config.paths.output);
 
     let notices = if from == "new" {
-        println!("📂 Loading new notices...");
+        logging::info(&locale.messages.load_new);
         storage.load_new().await?
     } else {
         // Parse YYYY-MM format
         let parts: Vec<&str> = from.split('-').collect();
         if parts.len() != 2 {
-            return Err(AppError::validation(
-                "Invalid date format. Use YYYY-MM (e.g., 2025-01)",
-            ));
+            return Err(AppError::validation(&locale.errors.invalid_date_format));
         }
         let year: i32 = parts[0]
             .parse()
-            .map_err(|_| AppError::validation("Invalid year"))?;
+            .map_err(|_| AppError::validation(&locale.errors.invalid_year))?;
         let month: u32 = parts[1]
             .parse()
-            .map_err(|_| AppError::validation("Invalid month"))?;
+            .map_err(|_| AppError::validation(&locale.errors.invalid_month))?;
 
-        println!("📂 Loading notices from {}-{:02}...", year, month);
+        logging::info(
+            &locale
+                .messages
+                .load_archive
+                .replace("{year}", &year.to_string())
+                .replace("{month}", &format!("{:02}", month)),
+        );
         storage.load_archive(year, month).await?
     };
 
-    println!("✅ Loaded {} notices", notices.len());
+    logging::success(
+        &locale
+            .messages
+            .load_complete
+            .replace("{count}", &notices.len().to_string()),
+    );
     for notice in &notices {
-        println!("   - {} [{}]", notice.title, notice.date);
+        logging::sub_item(
+            &locale
+                .messages
+                .load_notice_item
+                .replace("{title}", &notice.title)
+                .replace("{date}", &notice.date),
+        );
     }
 
     Ok(())
 }
 
 /// Validate configuration and seed data using load_all.
-fn run_validate(base_path: &PathBuf) -> Result<()> {
-    println!("🔍 Validating configuration and seed data...");
+fn run_validate(locale: &LocaleConfig, base_path: &PathBuf) -> Result<()> {
+    logging::header(&locale.messages.validate_starting);
 
     match load_all(base_path) {
         Ok((config, seed)) => {
-            println!("✅ Configuration loaded successfully:");
-            println!("   - User agent: {}", config.crawler.user_agent);
-            println!("   - Timeout: {}s", config.crawler.timeout_secs);
-            println!("   - Max concurrent: {}", config.crawler.max_concurrent);
-            println!("✅ Seed data validated:");
-            println!("   - Campuses: {}", seed.campuses.len());
-            println!("   - Keywords: {}", seed.keywords.len());
-            println!("   - CMS patterns: {}", seed.cms_patterns.len());
+            logging::success(&locale.messages.validate_config_success);
+            logging::sub_item(
+                &locale
+                    .messages
+                    .validate_user_agent
+                    .replace("{value}", &config.crawler.user_agent),
+            );
+            logging::sub_item(
+                &locale
+                    .messages
+                    .validate_timeout
+                    .replace("{value}", &config.crawler.timeout_secs.to_string()),
+            );
+            logging::sub_item(
+                &locale
+                    .messages
+                    .validate_max_concurrent
+                    .replace("{value}", &config.crawler.max_concurrent.to_string()),
+            );
+
+            logging::success(&locale.messages.validate_seed_success);
+            logging::sub_item(
+                &locale
+                    .messages
+                    .validate_campuses
+                    .replace("{count}", &seed.campuses.len().to_string()),
+            );
+            logging::sub_item(
+                &locale
+                    .messages
+                    .validate_keywords
+                    .replace("{count}", &seed.keywords.len().to_string()),
+            );
+            logging::sub_item(
+                &locale
+                    .messages
+                    .validate_patterns
+                    .replace("{count}", &seed.cms_patterns.len().to_string()),
+            );
             Ok(())
         }
         Err(e) => {
-            eprintln!("❌ Validation failed: {}", e);
+            logging::error(
+                &locale
+                    .messages
+                    .validate_failed
+                    .replace("{error}", &e.to_string()),
+            );
             Err(e)
         }
     }
 }
 
 /// Run the mapper to discover departments and boards.
-async fn run_mapper(config: &Config, base_path: &PathBuf) -> Result<()> {
-    println!("🗺️  Starting Mapper Mode...");
+async fn run_mapper(config: &Config, locale: &LocaleConfig, base_path: &PathBuf) -> Result<()> {
+    let config = config.clone();
+    let base_path = base_path.clone();
+    let locale = locale.clone();
 
-    let seed_path = config.seed_path(base_path);
-    println!("   Loading seed data from {seed_path:?}");
-    let seed = Seed::load(&seed_path)
-        .map_err(|e| AppError::config(format!("Failed to load seed data: {}", e)))?;
+    tokio::task::spawn_blocking(move || {
+        logging::header(&locale.messages.mapper_starting);
 
-    // Validate seed data
-    seed.validate()
-        .map_err(|e| AppError::validation(format!("Seed validation failed: {}", e)))?;
-    println!("   Loaded and validated {} campuses", seed.campuses.len());
+        let seed_path = config.seed_path(&base_path);
+        logging::info(
+            &locale
+                .messages
+                .mapper_loading_seed
+                .replace("{path}", &format!("{:?}", seed_path)),
+        );
+        let seed = Seed::load(&seed_path).map_err(|e| {
+            AppError::config(format!(
+                "{}: {}",
+                locale
+                    .errors
+                    .seed_load_failed
+                    .replace("{path}", &format!("{:?}", seed_path))
+                    .replace("{error}", ""),
+                e
+            ))
+        })?;
 
-    ensure_dir(&config.output_dir(base_path))?;
-    let client = create_client(&config.crawler)?;
+        // Validate seed data
+        seed.validate().map_err(|e| {
+            AppError::validation(format!(
+                "{}: {}",
+                locale.errors.seed_validation_failed.replace("{error}", ""),
+                e
+            ))
+        })?;
+        logging::success(
+            &locale
+                .messages
+                .mapper_loaded_campuses
+                .replace("{count}", &seed.campuses.len().to_string()),
+        );
 
-    println!(
-        "\\n{}\\nCrawling departments...\\n{}",
-        "=".repeat(60),
-        "=".repeat(60)
-    );
+        ensure_dir(&config.output_dir(&base_path))?;
+        let client = create_client(&config.crawler)?;
 
-    let dept_crawler = DepartmentCrawler::new(&client);
-    let mut campuses = dept_crawler.crawl_all(&seed.campuses)?;
+        logging::step(1, 2, &locale.messages.mapper_step_departments);
 
-    if campuses.is_empty() {
-        eprintln!("❌ Failed to crawl any campus.");
-        return Ok(());
-    }
+        let dept_crawler = DepartmentCrawler::new(&client);
+        let mut campuses = dept_crawler.crawl_all(&seed.campuses)?;
 
-    let dept_path = config.departments_path(base_path);
-    save_json(&dept_path, &campuses)?;
-    println!("✅ Saved initial departments to {dept_path:?}");
+        if campuses.is_empty() {
+            logging::error(
+                &locale
+                    .messages
+                    .dept_failed
+                    .replace("{name}", "any campus")
+                    .replace("{error}", "No results"),
+            );
+            return Ok(());
+        }
 
-    println!(
-        "\\n{}\\nStep 2: Discovering boards...\\n{}",
-        "=".repeat(60),
-        "=".repeat(60)
-    );
+        let dept_path = config.departments_path(&base_path);
+        save_json(&dept_path, &campuses)?;
+        logging::success(&format!("Saved initial departments to {:?}", dept_path));
 
-    let selector_detector = SelectorDetector::new(seed.cms_patterns.clone());
-    let board_service = BoardDiscoveryService::new(
-        &client,
-        seed.keywords.clone(),
-        selector_detector,
-        &config.discovery,
-        config.crawler.sitemap_timeout_secs,
-    );
+        logging::step(2, 2, &locale.messages.mapper_step_boards);
 
-    let mut manual_review_items: Vec<ManualReviewItem> = Vec::new();
+        let selector_detector = SelectorDetector::new(seed.cms_patterns.clone());
+        let board_service = BoardDiscoveryService::new(
+            &client,
+            seed.keywords.clone(),
+            selector_detector,
+            &config.discovery,
+            config.crawler.sitemap_timeout_secs,
+        );
 
-    for campus in &mut campuses {
-        println!("\\n🏫 [{}]", campus.campus);
-        for college in &mut campus.colleges {
-            for dept in &mut college.departments {
-                if config.logging.show_progress {
-                    print!("   🔍 {}... ", dept.name);
-                }
-                let result = board_service.discover(&campus.campus, &dept.name, &dept.url);
-                dept.boards = result.boards;
-                if let Some(review_item) = result.manual_review {
-                    manual_review_items.push(review_item);
-                }
-                if config.logging.show_progress {
-                    println!("Found {} board(s)", dept.boards.len());
+        let mut manual_review_items: Vec<ManualReviewItem> = Vec::new();
+
+        for campus in &mut campuses {
+            logging::info(
+                &locale
+                    .messages
+                    .mapper_campus
+                    .replace("{name}", &campus.campus),
+            );
+            for college in &mut campus.colleges {
+                for dept in &mut college.departments {
+                    if config.logging.show_progress {
+                        logging::debug(
+                            &locale
+                                .messages
+                                .mapper_dept_scanning
+                                .replace("{name}", &dept.name),
+                        );
+                    }
+                    let result = board_service.discover(&campus.campus, &dept.name, &dept.url);
+                    dept.boards = result.boards;
+                    if let Some(review_item) = result.manual_review {
+                        manual_review_items.push(review_item);
+                    }
+                    if config.logging.show_progress {
+                        logging::info(
+                            &locale
+                                .messages
+                                .mapper_dept_found_boards
+                                .replace("{count}", &dept.boards.len().to_string()),
+                        );
+                    }
                 }
             }
         }
-    }
 
-    let boards_path = config.departments_boards_path(base_path);
-    save_json(&boards_path, &campuses)?;
-    println!("\\n✨ Mapper Complete! Data saved to {boards_path:?}");
-
-    if !manual_review_items.is_empty() {
-        let review_path = config.manual_review_path(base_path);
-        save_json(&review_path, &manual_review_items)?;
-        println!(
-            "⚠️  Saved {} items needing manual review to {review_path:?}",
-            manual_review_items.len()
+        let boards_path = config.departments_boards_path(&base_path);
+        save_json(&boards_path, &campuses)?;
+        logging::success(
+            &locale
+                .messages
+                .mapper_complete
+                .replace("{path}", &format!("{:?}", boards_path)),
         );
-    }
 
-    let total_depts: usize = campuses.iter().map(|c| c.department_count()).sum();
-    let total_boards: usize = campuses.iter().map(|c| c.board_count()).sum();
-    println!("\\n📊 Summary");
-    println!("   Total Departments: {total_depts}");
-    println!("   Total Boards Found: {total_boards}");
-    println!("   Needs Manual Review: {}", manual_review_items.len());
+        if !manual_review_items.is_empty() {
+            let review_path = config.manual_review_path(&base_path);
+            save_json(&review_path, &manual_review_items)?;
+            logging::warn(
+                &locale
+                    .messages
+                    .mapper_manual_review
+                    .replace("{count}", &manual_review_items.len().to_string())
+                    .replace("{path}", &format!("{:?}", review_path)),
+            );
+        }
 
-    Ok(())
+        let total_depts: usize = campuses.iter().map(|c| c.department_count()).sum();
+        let total_boards: usize = campuses.iter().map(|c| c.board_count()).sum();
+        logging::summary(
+            "Mapper Results",
+            &[
+                (
+                    &locale.messages.summary_total_depts,
+                    total_depts.to_string(),
+                ),
+                (
+                    &locale.messages.summary_total_boards,
+                    total_boards.to_string(),
+                ),
+                (
+                    &locale.messages.summary_manual_review,
+                    manual_review_items.len().to_string(),
+                ),
+            ],
+        );
+
+        Ok(())
+    })
+    .await
+    .map_err(|e| AppError::config(format!("Task execution failed: {}", e)))?
 }
 
 /// Run the notice crawler.
 async fn run_crawler(config: &Config, locale: &LocaleConfig, base_path: &PathBuf) -> Result<()> {
-    if config.logging.show_progress {
-        print!("{}", locale.messages.crawler_starting);
-    }
+    logging::header(&locale.messages.crawler_starting);
 
     let sitemap_path = config.departments_boards_path(base_path);
     if !sitemap_path.exists() {
-        // Use locale.errors for error message
-        let error_msg = format!(
-            "{}: {:?}. Please run 'uRing map' first.",
-            locale.errors.config_load_failed, sitemap_path
-        );
+        let error_msg = locale
+            .errors
+            .sitemap_not_found
+            .replace("{path}", &format!("{:?}", sitemap_path));
         return Err(AppError::discovery(error_msg));
     }
+
+    logging::info(
+        &locale
+            .messages
+            .crawler_loading_sitemap
+            .replace("{path}", &format!("{:?}", sitemap_path)),
+    );
 
     let campuses =
         Campus::load_all(&sitemap_path).map_err(|e| AppError::crawl("loading sitemap", e))?;
     let total_depts: usize = campuses.iter().map(|c| c.department_count()).sum();
     let total_boards: usize = campuses.iter().map(|c| c.board_count()).sum();
 
-    if config.logging.show_progress {
-        println!(
-            "{}",
-            locale
-                .messages
-                .loaded_departments
-                .replace("{count_dept}", &total_depts.to_string())
-                .replace("{count_board}", &total_boards.to_string())
-        );
-    }
+    logging::info(
+        &locale
+            .messages
+            .loaded_departments
+            .replace("{count_dept}", &total_depts.to_string())
+            .replace("{count_board}", &total_boards.to_string()),
+    );
+
+    logging::info(&locale.messages.crawler_fetching);
 
     let crawler = NoticeCrawler::new(Arc::new(config.clone()));
     let notices = crawler.fetch_all(&campuses).await?;
@@ -334,25 +469,69 @@ async fn run_crawler(config: &Config, locale: &LocaleConfig, base_path: &PathBuf
     // Store notices using LocalStorage (demonstrates NoticeStorage trait usage)
     let storage = LocalStorage::new(&config.paths.output);
     let metadata = storage.store_new(&notices).await?;
-    if config.logging.show_progress {
-        println!(
-            "\n💾 Storage: {} notices saved to {}",
-            metadata.notice_count, metadata.location
-        );
-    }
+
+    logging::success(
+        &locale
+            .messages
+            .storage_saved
+            .replace("{count}", &metadata.notice_count.to_string())
+            .replace("{path}", &metadata.location),
+    );
 
     // Display S3 storage paths that would be used in Lambda mode
     if config.logging.show_progress {
         let bucket_prefix = "uRing";
         let now = Utc::now();
-        println!("\n📂 S3 Storage Paths (for Lambda deployment):");
-        println!("   New notices: {}", new_notices_key(bucket_prefix));
-        println!("   Archive: {}", monthly_archive_key(bucket_prefix, now));
-        println!(
-            "   Monthly prefix: {}",
+        logging::info(&locale.messages.storage_paths_header);
+        logging::sub_item(&format!("New notices: {}", new_notices_key(bucket_prefix)));
+        logging::sub_item(&format!(
+            "Archive: {}",
+            monthly_archive_key(bucket_prefix, now)
+        ));
+        logging::sub_item(&format!(
+            "Monthly prefix: {}",
             monthly_prefix(bucket_prefix, now.year(), now.month())
-        );
+        ));
     }
+
+    logging::success(&locale.messages.crawler_complete);
+
+    Ok(())
+}
+
+/// Run the full pipeline: map → crawl → archive
+async fn run_pipeline(
+    config: &Config,
+    locale: &LocaleConfig,
+    base_path: &PathBuf,
+    skip_map: bool,
+) -> Result<()> {
+    logging::header(&locale.messages.pipeline_starting);
+
+    let total_steps = if skip_map { 2 } else { 3 };
+    let mut current_step = 1;
+
+    // Step 1: Map (unless skipped)
+    if !skip_map {
+        logging::step(
+            current_step,
+            total_steps,
+            "Map - Discovering departments and boards",
+        );
+        run_mapper(config, locale, base_path).await?;
+        current_step += 1;
+    }
+
+    // Step 2: Crawl
+    logging::step(current_step, total_steps, "Crawl - Fetching notices");
+    run_crawler(config, locale, base_path).await?;
+    current_step += 1;
+
+    // Step 3: Archive
+    logging::step(current_step, total_steps, "Archive - Storing notices");
+    run_archive(config, locale).await?;
+
+    logging::success(&locale.messages.pipeline_complete);
 
     Ok(())
 }
@@ -363,17 +542,15 @@ fn print_notices(notices: &[Notice], config: &Config, locale: &LocaleConfig) {
         return;
     }
 
-    println!(
-        "\\n{}",
-        locale
+    logging::info(
+        &locale
             .messages
             .total_notices
-            .replace("{total_count}", &notices.len().to_string())
+            .replace("{count}", &notices.len().to_string()),
     );
-    println!("{:=<80}", locale.messages.separator_line);
+    logging::separator();
 
     for notice in notices {
-        println!("{}", notice.format(&config.output.notice_format));
-        println!("{:-<80}", locale.messages.separator_short);
+        logging::sub_item(&notice.format(&config.output.notice_format));
     }
 }

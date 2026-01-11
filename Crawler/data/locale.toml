@@ -1,12 +1,98 @@
 # uRing Crawler Locale Configuration
+# All console messages are defined here for easy internationalization
 
 [messages]
-crawler_starting = "🕷️  uRing Crawler starting...\n"
-loaded_departments = "📋 Loaded {count_dept} department(s) with {count_board} board(s)\n"
-total_notices = "\n📰 Total notices fetched: {total_count}\n"
-saved_notices = "\n💾 Saved notices to {output_path} directory"
-separator_line = "="
-separator_short = "-"
+# Startup messages
+app_starting = "uRing Crawler v1.0.0 starting"
+app_finished = "uRing Crawler finished"
+
+# Mapper messages
+mapper_starting = "Starting Mapper Mode"
+mapper_loading_seed = "Loading seed data from {path}"
+mapper_loaded_campuses = "Loaded {count} campuses"
+mapper_validated = "Seed data validated successfully"
+mapper_step_departments = "Crawling departments"
+mapper_step_boards = "Discovering boards"
+mapper_campus = "Processing campus: {name}"
+mapper_dept_scanning = "Scanning {name}"
+mapper_dept_accessed = "Accessed {url}"
+mapper_dept_found_boards = "Found {count} board(s)"
+mapper_sitemap_found = "Found sitemap: {url}"
+mapper_sitemap_fallback = "Sitemap yielded no results, falling back to homepage"
+mapper_complete = "Mapper complete! Data saved to {path}"
+mapper_manual_review = "Saved {count} items needing manual review to {path}"
+
+# Crawler messages
+crawler_starting = "Starting Crawler Mode"
+crawler_loading_sitemap = "Loading sitemap from {path}"
+loaded_departments = "Loaded {count_dept} department(s) with {count_board} board(s)"
+crawler_fetching = "Fetching notices from boards"
+crawler_fetch_error = "Error fetching {dept}/{board}: {error}"
+crawler_complete = "Crawl complete"
+total_notices = "Total notices fetched: {count}"
+saved_notices = "Saved notices to {path}"
+storage_saved = "Storage: {count} notices saved to {path}"
+storage_paths_header = "S3 Storage Paths (for Lambda deployment)"
+
+# Archive messages
+archive_starting = "Archiving notices"
+archive_complete = "Archived {count} notices"
+archive_location = "Location: {path}"
+archive_timestamp = "Timestamp: {time}"
+
+# Load messages
+load_new = "Loading new notices"
+load_archive = "Loading notices from {year}-{month}"
+load_complete = "Loaded {count} notices"
+load_notice_item = "{title} [{date}]"
+
+# Validate messages
+validate_starting = "Validating configuration and seed data"
+validate_config_success = "Configuration loaded successfully"
+validate_seed_success = "Seed data validated"
+validate_user_agent = "User agent: {value}"
+validate_timeout = "Timeout: {value}s"
+validate_max_concurrent = "Max concurrent: {value}"
+validate_campuses = "Campuses: {count}"
+validate_keywords = "Keywords: {count}"
+validate_patterns = "CMS patterns: {count}"
+validate_failed = "Validation failed: {error}"
+
+# Pipeline messages
+pipeline_starting = "Starting Pipeline Mode"
+pipeline_step = "Pipeline step {current}/{total}: {name}"
+pipeline_complete = "Pipeline complete"
+
+# Department crawler messages
+dept_crawling = "Crawling {name}"
+dept_found = "Found {count} departments"
+dept_failed = "Failed to crawl {name}: {error}"
+dept_no_content = "Cannot find main content area for {name}"
+dept_no_homepage = "No homepage URL found for {name}"
+
+# CMS detection messages
+cms_detected = "Detected CMS pattern: {name} for URL: {url}"
+
+# Summary labels
+summary_total_depts = "Total Departments"
+summary_total_boards = "Total Boards Found"
+summary_manual_review = "Needs Manual Review"
+summary_notices = "Notices Fetched"
+
+# Separators
+separator_line = "═"
+separator_short = "─"
 
 [errors]
-config_load_failed = "⚠️  Failed to load config: {}. Using defaults."
+# Error messages
+config_load_failed = "Failed to load config from {path}: {error}"
+config_using_defaults = "Using default configuration"
+seed_load_failed = "Failed to load seed from {path}: {error}"
+seed_using_defaults = "Using default seed data"
+seed_validation_failed = "Seed validation failed: {error}"
+sitemap_not_found = "Sitemap not found at {path}. Please run 'uRing map' first"
+invalid_date_format = "Invalid date format. Use YYYY-MM (e.g., 2025-01)"
+invalid_year = "Invalid year"
+invalid_month = "Invalid month"
+http_error = "HTTP error: {error}"
+parse_error = "Parse error: {error}"
