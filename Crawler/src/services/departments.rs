@@ -10,7 +10,7 @@ use scraper::{ElementRef, Html, Selector};
 
 use crate::error::Result;
 use crate::models::{Campus, CampusInfo, College, Department};
-use crate::utils::http::fetch_page;
+use crate::utils::{http::fetch_page, log};
 
 /// Service for crawling campus department information.
 pub struct DepartmentCrawler<'a> {
@@ -28,15 +28,15 @@ impl<'a> DepartmentCrawler<'a> {
         campuses
             .iter()
             .filter_map(|info| {
-                println!("Crawling {}...", info.name);
+                log::info(&format!("Crawling {}...", info.name));
                 match self.crawl_campus(info) {
                     Ok(campus) => {
                         let count = campus.department_count();
-                        println!("  Found {count} departments");
+                        log::info(&format!("  Found {count} departments"));
                         Some(campus)
                     }
                     Err(e) => {
-                        eprintln!("  Failed to crawl {}: {e}", info.name);
+                        log::error(&format!("  Failed to crawl {}: {e}", info.name));
                         None
                     }
                 }
@@ -56,7 +56,11 @@ impl<'a> DepartmentCrawler<'a> {
         };
 
         let Some(main_elem) = self.find_main_content(&document) else {
-            println!("  Cannot find main content area for {}", info.name);
+            log::error(&format!(
+                "  Cannot find main content area for {}",
+                info.name
+            ));
+
             return Ok(campus);
         };
 
@@ -97,7 +101,7 @@ impl<'a> DepartmentCrawler<'a> {
             }
 
             if dept_url == "NOT_FOUND" {
-                println!("  Warning: No homepage URL found for {dept_name}");
+                log::warn(&format!("  Warning: No homepage URL found for {dept_name}"));
             }
 
             let dept_id = Self::generate_department_id(&dept_name, &dept_url);

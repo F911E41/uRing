@@ -16,8 +16,7 @@ use crate::models::{
     Board, BoardDiscoveryResult, CmsSelectors, DiscoveryConfig, KeywordMapping, ManualReviewItem,
 };
 use crate::services::SelectorDetector;
-use crate::utils::http::fetch_page_with_timeout;
-use crate::utils::url;
+use crate::utils::{http::fetch_page_with_timeout, log, url};
 
 /// Service for discovering boards on department websites.
 pub struct BoardDiscoveryService<'a> {
@@ -75,7 +74,7 @@ impl<'a> BoardDiscoveryService<'a> {
             }
         };
 
-        println!("    Accessed: {dept_url}");
+        log::info(&format!("    Accessed: {dept_url}"));
 
         // Detect default CMS selectors
         let default_selectors = self.selector_detector.detect(&document, dept_url);
@@ -89,7 +88,7 @@ impl<'a> BoardDiscoveryService<'a> {
 
         if result.boards.is_empty() && source_doc.html() != document.html() {
             // Sitemap didn't work, try homepage
-            println!("    Sitemap yielded no results, falling back to homepage");
+            log::info("    Sitemap yielded no results, falling back to homepage");
             result.boards = self.extract_boards(&document, dept_url, &default_selectors);
         }
 
@@ -120,7 +119,7 @@ impl<'a> BoardDiscoveryService<'a> {
                 if let Ok(sitemap_doc) =
                     fetch_page_with_timeout(self.client, &sitemap_url, self.sitemap_timeout)
                 {
-                    println!("    Found sitemap: {sitemap_url}");
+                    log::info(&format!("    Found sitemap: {sitemap_url}"));
                     return Some(sitemap_doc);
                 }
             }

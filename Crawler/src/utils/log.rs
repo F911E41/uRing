@@ -1,4 +1,4 @@
-// src/logging.rs
+// src/utils/log.rs
 
 //! Centralized logging module with server-style formatting.
 //!
@@ -101,67 +101,65 @@ pub fn error(message: &str) {
 
 /// Log a success message (always shown as INFO)
 pub fn success(message: &str) {
-    println!("{}", format_log(LogLevel::Info, &format!("✓ {}", message)));
+    println!("{}", format_log(LogLevel::Info, message));
 }
 
 /// Log a progress message (shown without newline for updates)
 pub fn progress(message: &str) {
     if should_log(LogLevel::Info) {
-        print!(
-            "\r[{}] [{}] {}",
-            Local::now().format("%H:%M:%S"),
-            "PROG",
-            message
-        );
-        use std::io::Write;
-        let _ = std::io::stdout().flush();
+        println!("{}", format_log(LogLevel::Info, message));
     }
 }
 
 /// Log a step in a process
 pub fn step(step_num: usize, total: usize, message: &str) {
     if should_log(LogLevel::Info) {
-        println!(
-            "[{}] [STEP {}/{}] {}",
-            Local::now().format("%H:%M:%S"),
-            step_num,
-            total,
-            message
-        );
+        let msg = format!("[STEP {}/{}] {}", step_num, total, message);
+        println!("{}", format_log(LogLevel::Info, &msg));
     }
 }
 
 /// Log a separator line
 pub fn separator() {
     if should_log(LogLevel::Info) {
-        println!("{}", "─".repeat(60));
+        println!("{}", format_log(LogLevel::Info, &"─".repeat(60)));
     }
 }
 
 /// Log a header
 pub fn header(title: &str) {
     if should_log(LogLevel::Info) {
-        println!();
-        println!("{}", "═".repeat(60));
-        println!("  {}", title);
-        println!("{}", "═".repeat(60));
+        // println!(); // Extra newline for spacing
+
+        let border = "═".repeat(60);
+        println!("{}", format_log(LogLevel::Info, &border));
+        println!("{}", format_log(LogLevel::Info, &format!("  {}", title)));
+        println!("{}", format_log(LogLevel::Info, &border));
     }
 }
 
 /// Log a sub-item (indented)
 pub fn sub_item(message: &str) {
     if should_log(LogLevel::Info) {
-        println!("    {}", message);
+        // Pass an indented message
+        let msg = format!("    {}", message);
+        println!("{}", format_log(LogLevel::Info, &msg));
     }
 }
 
 /// Log a summary section
 pub fn summary(title: &str, items: &[(&str, String)]) {
     if should_log(LogLevel::Info) {
-        println!();
-        println!("[{}] [SUMMARY] {}", Local::now().format("%H:%M:%S"), title);
+        println!(); // 가독성을 위한 빈 줄
+
+        // Print title
+        let title_msg = format!("[SUMMARY] {}", title);
+        println!("{}", format_log(LogLevel::Info, &title_msg));
+
+        // Print each item
         for (key, value) in items {
-            println!("    {}: {}", key, value);
+            let item_msg = format!("    {}: {}", key, value);
+            println!("{}", format_log(LogLevel::Info, &item_msg));
         }
     }
 }

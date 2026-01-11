@@ -10,7 +10,6 @@ mod lambda;
 
 mod config;
 mod error;
-mod logging;
 mod models;
 mod services;
 mod storage;
@@ -31,7 +30,7 @@ use crate::storage::{LocalStorage, NoticeStorage};
 use crate::utils::{
     fs::{ensure_dir, save_json},
     http::create_client,
-    save_notices,
+    log, save_notices,
 };
 
 #[derive(Parser, Debug)]
@@ -81,7 +80,7 @@ enum Command {
         #[arg(long, default_value = "new")]
         from: String,
     },
-    /// Run the full pipeline: map → crawl → archive
+    /// Run the full pipeline
     Pipeline {
         /// Skip the map step (use existing sitemap)
         #[arg(long)]
@@ -99,7 +98,7 @@ async fn main() -> Result<()> {
     let locale = LocaleConfig::load_or_default(&cli.locale);
 
     // Initialize logging system
-    logging::init(&locale, &config.logging.level);
+    log::init(&locale, &config.logging.level);
 
     if cli.quiet {
         config.output.console_enabled = false;
@@ -130,24 +129,24 @@ async fn main() -> Result<()> {
 
 /// Archive new notices to monthly storage.
 async fn run_archive(config: &Config, locale: &LocaleConfig) -> Result<()> {
-    logging::header(&locale.messages.archive_starting);
+    log::header(&locale.messages.archive_starting);
 
     let storage = LocalStorage::new(&config.paths.output);
     let metadata = storage.rotate_to_archive().await?;
 
-    logging::success(
+    log::success(
         &locale
             .messages
             .archive_complete
             .replace("{count}", &metadata.notice_count.to_string()),
     );
-    logging::sub_item(
+    log::sub_item(
         &locale
             .messages
             .archive_location
             .replace("{path}", &metadata.location),
     );
-    logging::sub_item(
+    log::sub_item(
         &locale
             .messages
             .archive_timestamp
@@ -162,7 +161,7 @@ async fn run_load(config: &Config, locale: &LocaleConfig, from: &str) -> Result<
     let storage = LocalStorage::new(&config.paths.output);
 
     let notices = if from == "new" {
-        logging::info(&locale.messages.load_new);
+        log::info(&locale.messages.load_new);
         storage.load_new().await?
     } else {
         // Parse YYYY-MM format
@@ -177,7 +176,7 @@ async fn run_load(config: &Config, locale: &LocaleConfig, from: &str) -> Result<
             .parse()
             .map_err(|_| AppError::validation(&locale.errors.invalid_month))?;
 
-        logging::info(
+        log::info(
             &locale
                 .messages
                 .load_archive
@@ -187,14 +186,14 @@ async fn run_load(config: &Config, locale: &LocaleConfig, from: &str) -> Result<
         storage.load_archive(year, month).await?
     };
 
-    logging::success(
+    log::success(
         &locale
             .messages
             .load_complete
             .replace("{count}", &notices.len().to_string()),
     );
     for notice in &notices {
-        logging::sub_item(
+        log::sub_item(
             &locale
                 .messages
                 .load_notice_item
@@ -208,44 +207,44 @@ async fn run_load(config: &Config, locale: &LocaleConfig, from: &str) -> Result<
 
 /// Validate configuration and seed data using load_all.
 fn run_validate(locale: &LocaleConfig, base_path: &PathBuf) -> Result<()> {
-    logging::header(&locale.messages.validate_starting);
+    log::header(&locale.messages.validate_starting);
 
     match load_all(base_path) {
         Ok((config, seed)) => {
-            logging::success(&locale.messages.validate_config_success);
-            logging::sub_item(
+            log::success(&locale.messages.validate_config_success);
+            log::sub_item(
                 &locale
                     .messages
                     .validate_user_agent
                     .replace("{value}", &config.crawler.user_agent),
             );
-            logging::sub_item(
+            log::sub_item(
                 &locale
                     .messages
                     .validate_timeout
                     .replace("{value}", &config.crawler.timeout_secs.to_string()),
             );
-            logging::sub_item(
+            log::sub_item(
                 &locale
                     .messages
                     .validate_max_concurrent
                     .replace("{value}", &config.crawler.max_concurrent.to_string()),
             );
 
-            logging::success(&locale.messages.validate_seed_success);
-            logging::sub_item(
+            log::success(&locale.messages.validate_seed_success);
+            log::sub_item(
                 &locale
                     .messages
                     .validate_campuses
                     .replace("{count}", &seed.campuses.len().to_string()),
             );
-            logging::sub_item(
+            log::sub_item(
                 &locale
                     .messages
                     .validate_keywords
                     .replace("{count}", &seed.keywords.len().to_string()),
             );
-            logging::sub_item(
+            log::sub_item(
                 &locale
                     .messages
                     .validate_patterns
@@ -254,7 +253,7 @@ fn run_validate(locale: &LocaleConfig, base_path: &PathBuf) -> Result<()> {
             Ok(())
         }
         Err(e) => {
-            logging::error(
+            log::error(
                 &locale
                     .messages
                     .validate_failed
@@ -272,10 +271,10 @@ async fn run_mapper(config: &Config, locale: &LocaleConfig, base_path: &PathBuf)
     let locale = locale.clone();
 
     tokio::task::spawn_blocking(move || {
-        logging::header(&locale.messages.mapper_starting);
+        log::header(&locale.messages.mapper_starting);
 
         let seed_path = config.seed_path(&base_path);
-        logging::info(
+        log::info(
             &locale
                 .messages
                 .mapper_loading_seed
@@ -301,7 +300,7 @@ async fn run_mapper(config: &Config, locale: &LocaleConfig, base_path: &PathBuf)
                 e
             ))
         })?;
-        logging::success(
+        log::success(
             &locale
                 .messages
                 .mapper_loaded_campuses
@@ -311,13 +310,13 @@ async fn run_mapper(config: &Config, locale: &LocaleConfig, base_path: &PathBuf)
         ensure_dir(&config.output_dir(&base_path))?;
         let client = create_client(&config.crawler)?;
 
-        logging::step(1, 2, &locale.messages.mapper_step_departments);
+        log::step(1, 2, &locale.messages.mapper_step_departments);
 
         let dept_crawler = DepartmentCrawler::new(&client);
         let mut campuses = dept_crawler.crawl_all(&seed.campuses)?;
 
         if campuses.is_empty() {
-            logging::error(
+            log::error(
                 &locale
                     .messages
                     .dept_failed
@@ -329,9 +328,9 @@ async fn run_mapper(config: &Config, locale: &LocaleConfig, base_path: &PathBuf)
 
         let dept_path = config.departments_path(&base_path);
         save_json(&dept_path, &campuses)?;
-        logging::success(&format!("Saved initial departments to {:?}", dept_path));
+        log::success(&format!("Saved initial departments to {:?}", dept_path));
 
-        logging::step(2, 2, &locale.messages.mapper_step_boards);
+        log::step(2, 2, &locale.messages.mapper_step_boards);
 
         let selector_detector = SelectorDetector::new(seed.cms_patterns.clone());
         let board_service = BoardDiscoveryService::new(
@@ -345,7 +344,7 @@ async fn run_mapper(config: &Config, locale: &LocaleConfig, base_path: &PathBuf)
         let mut manual_review_items: Vec<ManualReviewItem> = Vec::new();
 
         for campus in &mut campuses {
-            logging::info(
+            log::info(
                 &locale
                     .messages
                     .mapper_campus
@@ -354,7 +353,7 @@ async fn run_mapper(config: &Config, locale: &LocaleConfig, base_path: &PathBuf)
             for college in &mut campus.colleges {
                 for dept in &mut college.departments {
                     if config.logging.show_progress {
-                        logging::debug(
+                        log::debug(
                             &locale
                                 .messages
                                 .mapper_dept_scanning
@@ -367,7 +366,7 @@ async fn run_mapper(config: &Config, locale: &LocaleConfig, base_path: &PathBuf)
                         manual_review_items.push(review_item);
                     }
                     if config.logging.show_progress {
-                        logging::info(
+                        log::info(
                             &locale
                                 .messages
                                 .mapper_dept_found_boards
@@ -380,7 +379,7 @@ async fn run_mapper(config: &Config, locale: &LocaleConfig, base_path: &PathBuf)
 
         let boards_path = config.departments_boards_path(&base_path);
         save_json(&boards_path, &campuses)?;
-        logging::success(
+        log::success(
             &locale
                 .messages
                 .mapper_complete
@@ -390,7 +389,7 @@ async fn run_mapper(config: &Config, locale: &LocaleConfig, base_path: &PathBuf)
         if !manual_review_items.is_empty() {
             let review_path = config.manual_review_path(&base_path);
             save_json(&review_path, &manual_review_items)?;
-            logging::warn(
+            log::warn(
                 &locale
                     .messages
                     .mapper_manual_review
@@ -401,7 +400,7 @@ async fn run_mapper(config: &Config, locale: &LocaleConfig, base_path: &PathBuf)
 
         let total_depts: usize = campuses.iter().map(|c| c.department_count()).sum();
         let total_boards: usize = campuses.iter().map(|c| c.board_count()).sum();
-        logging::summary(
+        log::summary(
             "Mapper Results",
             &[
                 (
@@ -427,7 +426,7 @@ async fn run_mapper(config: &Config, locale: &LocaleConfig, base_path: &PathBuf)
 
 /// Run the notice crawler.
 async fn run_crawler(config: &Config, locale: &LocaleConfig, base_path: &PathBuf) -> Result<()> {
-    logging::header(&locale.messages.crawler_starting);
+    log::header(&locale.messages.crawler_starting);
 
     let sitemap_path = config.departments_boards_path(base_path);
     if !sitemap_path.exists() {
@@ -438,7 +437,7 @@ async fn run_crawler(config: &Config, locale: &LocaleConfig, base_path: &PathBuf
         return Err(AppError::discovery(error_msg));
     }
 
-    logging::info(
+    log::info(
         &locale
             .messages
             .crawler_loading_sitemap
@@ -450,7 +449,7 @@ async fn run_crawler(config: &Config, locale: &LocaleConfig, base_path: &PathBuf
     let total_depts: usize = campuses.iter().map(|c| c.department_count()).sum();
     let total_boards: usize = campuses.iter().map(|c| c.board_count()).sum();
 
-    logging::info(
+    log::info(
         &locale
             .messages
             .loaded_departments
@@ -458,7 +457,7 @@ async fn run_crawler(config: &Config, locale: &LocaleConfig, base_path: &PathBuf
             .replace("{count_board}", &total_boards.to_string()),
     );
 
-    logging::info(&locale.messages.crawler_fetching);
+    log::info(&locale.messages.crawler_fetching);
 
     let crawler = NoticeCrawler::new(Arc::new(config.clone()));
     let notices = crawler.fetch_all(&campuses).await?;
@@ -470,7 +469,7 @@ async fn run_crawler(config: &Config, locale: &LocaleConfig, base_path: &PathBuf
     let storage = LocalStorage::new(&config.paths.output);
     let metadata = storage.store_new(&notices).await?;
 
-    logging::success(
+    log::success(
         &locale
             .messages
             .storage_saved
@@ -482,38 +481,38 @@ async fn run_crawler(config: &Config, locale: &LocaleConfig, base_path: &PathBuf
     if config.logging.show_progress {
         let bucket_prefix = "uRing";
         let now = Utc::now();
-        logging::info(&locale.messages.storage_paths_header);
-        logging::sub_item(&format!("New notices: {}", new_notices_key(bucket_prefix)));
-        logging::sub_item(&format!(
+        log::info(&locale.messages.storage_paths_header);
+        log::sub_item(&format!("New notices: {}", new_notices_key(bucket_prefix)));
+        log::sub_item(&format!(
             "Archive: {}",
             monthly_archive_key(bucket_prefix, now)
         ));
-        logging::sub_item(&format!(
+        log::sub_item(&format!(
             "Monthly prefix: {}",
             monthly_prefix(bucket_prefix, now.year(), now.month())
         ));
     }
 
-    logging::success(&locale.messages.crawler_complete);
+    log::success(&locale.messages.crawler_complete);
 
     Ok(())
 }
 
-/// Run the full pipeline: map → crawl → archive
+/// Run the full pipeline
 async fn run_pipeline(
     config: &Config,
     locale: &LocaleConfig,
     base_path: &PathBuf,
     skip_map: bool,
 ) -> Result<()> {
-    logging::header(&locale.messages.pipeline_starting);
+    log::header(&locale.messages.pipeline_starting);
 
     let total_steps = if skip_map { 2 } else { 3 };
     let mut current_step = 1;
 
     // Step 1: Map (unless skipped)
     if !skip_map {
-        logging::step(
+        log::step(
             current_step,
             total_steps,
             "Map - Discovering departments and boards",
@@ -523,15 +522,15 @@ async fn run_pipeline(
     }
 
     // Step 2: Crawl
-    logging::step(current_step, total_steps, "Crawl - Fetching notices");
+    log::step(current_step, total_steps, "Crawl - Fetching notices");
     run_crawler(config, locale, base_path).await?;
     current_step += 1;
 
     // Step 3: Archive
-    logging::step(current_step, total_steps, "Archive - Storing notices");
+    log::step(current_step, total_steps, "Archive - Storing notices");
     run_archive(config, locale).await?;
 
-    logging::success(&locale.messages.pipeline_complete);
+    log::success(&locale.messages.pipeline_complete);
 
     Ok(())
 }
@@ -542,15 +541,15 @@ fn print_notices(notices: &[Notice], config: &Config, locale: &LocaleConfig) {
         return;
     }
 
-    logging::info(
+    log::info(
         &locale
             .messages
             .total_notices
             .replace("{count}", &notices.len().to_string()),
     );
-    logging::separator();
+    log::separator();
 
     for notice in notices {
-        logging::sub_item(&notice.format(&config.output.notice_format));
+        log::sub_item(&notice.format(&config.output.notice_format));
     }
 }

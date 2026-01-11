@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 
 use crate::error::Result;
+use crate::utils::log;
 
 /// Root application configuration.
 #[derive(Debug, Clone, Deserialize)]
@@ -47,10 +48,10 @@ impl Config {
     /// Load configuration or return default if loading fails.
     pub fn load_or_default(path: impl AsRef<Path>) -> Self {
         Self::load(&path).unwrap_or_else(|e| {
-            eprintln!(
-                "⚠️  Config load failed from {:?}: {e}. Using defaults.",
+            log::warn(&format!(
+                "Config load failed from {:?}: {e}. Using defaults.",
                 path.as_ref()
-            );
+            ));
             Self::default()
         })
     }
@@ -322,10 +323,10 @@ impl LocaleConfig {
     /// Load locale or return default if loading fails.
     pub fn load_or_default(path: impl AsRef<Path>) -> Self {
         Self::load(&path).unwrap_or_else(|e| {
-            eprintln!(
-                "⚠️  Locale load failed from {:?}: {e}. Using defaults.",
+            log::warn(&format!(
+                "Locale load failed from {:?}: {e}. Using defaults.",
                 path.as_ref()
-            );
+            ));
             Self::default()
         })
     }
@@ -605,13 +606,13 @@ mod defaults {
         "data/output".into()
     }
     pub fn departments_file() -> String {
-        "yonsei_departments.json".into()
+        "tmp/yonsei_departments.json".into()
     }
     pub fn departments_boards_file() -> String {
         "yonsei_departments_boards.json".into()
     }
     pub fn manual_review_file() -> String {
-        "manual_review_needed.json".into()
+        "tmp/manual_review_needed.json".into()
     }
 
     // Discovery defaults

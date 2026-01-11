@@ -4,6 +4,7 @@
 
 pub mod fs;
 pub mod http;
+pub mod log;
 pub mod url;
 
 use std::collections::HashMap;
@@ -47,13 +48,13 @@ pub fn save_notices(notices: &[Notice], config: &Config, locale: &LocaleConfig) 
     }
 
     if config.logging.show_progress {
-        println!(
+        log::info(&format!(
             "{}",
             locale
                 .messages
                 .saved_notices
                 .replace("{output_path}", &config.paths.output)
-        );
+        ));
     }
 
     Ok(())

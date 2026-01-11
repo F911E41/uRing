@@ -7,6 +7,7 @@
 use scraper::Html;
 
 use crate::models::{CmsPattern, CmsSelectors, Seed};
+use crate::utils::log::debug;
 
 /// Service for detecting CMS types and returning appropriate selectors.
 pub struct SelectorDetector {
@@ -28,10 +29,10 @@ impl SelectorDetector {
             if self.matches_pattern(pattern, url, &html_lower) {
                 // Log the detected CMS pattern name for debugging
                 if cfg!(debug_assertions) {
-                    eprintln!(
-                        "[DEBUG] Detected CMS pattern: '{}' for URL: {}",
+                    debug(&format!(
+                        "Detected CMS pattern: '{}' for URL: {}",
                         pattern.name, url
-                    );
+                    ));
                 }
                 Some(CmsSelectors::from_pattern(
                     &pattern.row_selector,

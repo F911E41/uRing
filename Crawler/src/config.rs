@@ -9,15 +9,17 @@ use std::path::Path;
 
 use crate::error::{AppError, Result};
 use crate::models::{Config, Seed};
-use crate::utils::fs::load_toml;
+use crate::utils::{fs::load_toml, log};
 
 /// Load configuration from a TOML file.
 ///
 /// Falls back to defaults if loading fails.
 pub fn load_config(path: &Path) -> Result<Config> {
     load_toml(path).or_else(|e| {
-        eprintln!("Warning: Failed to load config from {path:?}: {e}");
-        eprintln!("Using default configuration.");
+        log::warn(&format!(
+            "Warning: Failed to load config from {path:?}: {e}"
+        ));
+        log::warn("Using default configuration.");
         Ok(Config::default())
     })
 }
@@ -27,8 +29,8 @@ pub fn load_config(path: &Path) -> Result<Config> {
 /// Falls back to defaults if loading fails.
 pub fn load_seed(path: &Path) -> Result<Seed> {
     load_toml(path).or_else(|e| {
-        eprintln!("Warning: Failed to load seed from {path:?}: {e}");
-        eprintln!("Using default seed data.");
+        log::warn(&format!("Warning: Failed to load seed from {path:?}: {e}"));
+        log::warn("Using default seed data.");
         Ok(Seed::default())
     })
 }

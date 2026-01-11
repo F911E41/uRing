@@ -14,7 +14,7 @@ use tokio::sync::Mutex;
 
 use crate::error::{AppError, Result};
 use crate::models::{Board, Campus, Config, DepartmentRef, Notice};
-use crate::utils::resolve_url;
+use crate::utils::{log, resolve_url};
 
 /// Service for crawling notices from department boards.
 pub struct NoticeCrawler {
@@ -66,7 +66,10 @@ impl NoticeCrawler {
                             notices.lock().await.extend(board_notices);
                         }
                         Err(e) => {
-                            eprintln!("Error fetching {}/{}: {e}", dept_ref.dept.name, board.name);
+                            log::error(&format!(
+                                "Error fetching {}/{}: {e}",
+                                dept_ref.dept.name, board.name
+                            ));
                         }
                     }
 
