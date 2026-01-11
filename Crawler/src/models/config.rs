@@ -605,14 +605,14 @@ mod defaults {
     pub fn output_dir() -> String {
         "data/output".into()
     }
+    pub fn manual_review_file() -> String {
+        "tmp/manual_review_needed.json".into()
+    }
     pub fn departments_file() -> String {
         "tmp/yonsei_departments.json".into()
     }
     pub fn departments_boards_file() -> String {
-        "yonsei_departments_boards.json".into()
-    }
-    pub fn manual_review_file() -> String {
-        "tmp/manual_review_needed.json".into()
+        "siteMap.json".into()
     }
 
     // Discovery defaults

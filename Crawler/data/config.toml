@@ -30,9 +30,9 @@ seed = "data/seed.toml"
 output_dir = "data/output"
 
 # Output file names
-departments_file = "yonsei_departments.json"
+manual_review_file = "tmp/manual_review_needed.json"
+departments_file = "tmp/yonsei_departments.json"
 departments_boards_file = "siteMap.json"
-manual_review_file = "manual_review_needed.json"
 
 [cleaning]
 # Patterns to remove from titles
