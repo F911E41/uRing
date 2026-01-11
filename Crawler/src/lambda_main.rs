@@ -1,4 +1,4 @@
-// src/lambda.rs
+// src/lambda_main.rs
 
 //! Lambda entry point for uRing Crawler.
 //!
