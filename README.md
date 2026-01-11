@@ -52,8 +52,6 @@ To support real-time notification features, we implement a **Delta-First** appro
 
 ### Todo
 
-- [ ] Deploy the crawler to a production environment with proper monitoring.
-- [ ] Enhance the CMS selector detection algorithm for better accuracy.
 - [ ] Enhance `Viewer` application to utilize the new data schema and support real-time notifications.
 - [ ] Update documentation to reflect recent code changes.
 
