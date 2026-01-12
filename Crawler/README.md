@@ -1,65 +1,162 @@
 # Crawler
 
-Modern `Crawler` application for Yonsei University notices.
+This document describes the internal architecture of the uRing Crawler, a serverless Rust-based crawler designed to ingest, deduplicate, and persist university notice data in a scalable and production-safe manner.
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Architecture](#architecture)
-  - [Data Ingestion Pipeline](#data-ingestion-pipeline)
-  - [Storage Strategy & Schema](#storage-strategy--schema)
-  - [Notification & Retention Workflow](#notification--retention-workflow)
-- [Roadmap](#roadmap)
-  - [Todo](#todo)
+- [Design Principles](#design-principles)
+- [High-Level Architecture](#high-level-architecture)
+- [Data Ingestion Pipeline](#data-ingestion-pipeline)
+- [Storage Strategy](#storage-strategy)
+  - [S3 Bucket Layout](#s3-bucket-layout)
+  - [Append-Only Event Storage](#append-only-event-storage)
+  - [Snapshot Generation (Read-Optimized Views)](#snapshot-generation-read-optimized-views)
+  - [Pointer-Based Atomic Rotation (Delta-First)](#pointer-based-atomic-rotation-delta-first)
+- [Canonical Notice Identification](#canonical-notice-identification)
+- [Concurrency & Idempotency](#concurrency--idempotency)
+- [Retention & Lifecycle Management](#retention--lifecycle-management)
+- [Deployment Model](#deployment-model)
+- [Future Extensions](#future-extensions)
+- [Summary](#summary)
 
-## Overview
+## Design Principles
 
-Being written in Rust, `uRing Crawler` is designed to efficiently crawl and parse notices from various university websites, focusing on Yonsei University.
+The crawler architecture is guided by the following principles:
 
-## Architecture
+- Stateless execution suitable for serverless environments (AWS Lambda)
+- Append-only storage to ensure data integrity and auditability
+- Delta-first data flow to support real-time notification use cases
+- Clear separation between ingestion, storage, and consumption
+- Operational simplicity over premature optimization
 
-### Data Ingestion Pipeline
+## High-Level Architecture
 
-The crawler operates on a **1-minute interval cron job**, polling various department portals to detect and extract the latest announcements. The retrieved payload is subsequently persisted to **AWS S3**.
+```code
+[ EventBridge (10 min) ]
+          |
+          v
+[ Lambda Crawler ]
+          |
+          v
+[ S3 (Append-only Storage + Snapshot Pointer) ]
+          |
+          v
+[ Consumer (API / App / Notification Service) ]
+```
 
-### Storage Strategy & Schema
+## Data Ingestion Pipeline
 
-We utilize a **centralized S3 bucket** (`uRing/`) with a strict partitioning strategy to ensure efficient data management.
+- The crawler is triggered on a 1-minute interval using Amazon EventBridge.
+- Each execution fetches notices from configured department boards based on a predefined sitemap.
+- Crawling is idempotent at the notice level using a canonical notice identifier.
+- The crawler does not maintain any in-memory or persistent state between executions.
 
-- **Root Prefix:** `uRing/`
-- **Partitioning:** Campus + monthly based (e.g., `s3://<bucket>/uRing/CampusA/2023-01/`)
-- **Data Model:**
-- **Monolithic JSON (per campus):** Instead of fragmenting data by department, all notices are aggregated into a single JSON file per campus to simplify the read logic.
+## Storage Strategy
 
-### Notification & Retention Workflow
+### S3 Bucket Layout
 
-To support real-time notification features, we implement a **Delta-First** approach:
+All data is stored under a single logical namespace: uRing/.
 
-1. **The `New` Directory (Hot Data):**
+```code
+uRing/
+ ├─ config/
+ │   └─ sitemap.json
+ │
+ ├─ {campus}/
+ │   ├─ events/
+ │   │   └─ 2026-01/
+ │   │       ├─ {notice_id}.json
+ │   │       └─ ...
+ │   │
+ │   ├─ snapshots/
+ │   │   ├─ 2026-01-12T11:03:00Z.json
+ │   │   └─ ...
+ │   │
+ │   └─ new.pointer.json
+```
 
-- Newly discovered notices are isolated and stored in a specific `uRing/{campus}/New/` directory.
-- This directory serves as the source of truth for triggering user notifications.
+### Append-Only Event Storage
 
-1. **Atomic Rotation:**
+- Each notice is persisted as an immutable event object:
+  - uRing/{campus}/events/{yyyy-mm}/{notice_id}.json
+- Once written, notice objects are never mutated or overwritten.
+- This enables:
+  - Safe retries
+  - Historical inspection
+  - Deterministic reprocessing
 
-- Upon each crawl cycle, the existing content in `uRing/{campus}/New/` is migrated to the appropriate **Monthly Archive** folder.
-- The `New/` directory is then overwritten with the fresh batch of data.
+### Snapshot Generation (Read-Optimized Views)
 
-## Deployment (AWS Lambda)
+- During each crawl cycle, the crawler aggregates newly discovered notices into a snapshot file:
+- uRing/{campus}/snapshots/{timestamp}.json
+- Snapshots are optimized for read simplicity, not write performance.
+- Snapshots represent the current “hot view” of recent notices for a campus.
 
-1. Build the Lambda package (requires `cargo lambda`):
-   - `cargo lambda build --release --arm64 --bin lambda --features lambda`
-2. Upload the sitemap to S3:
-   - `aws s3 cp data/output/yonsei_departments_boards.json s3://<bucket>/uRing/config/sitemap.json`
-3. Deploy infrastructure:
-   - `cd infra && terraform init`
-   - `terraform apply -var="bucket_name=<bucket>" -var="region=ap-northeast-2"`
+### Pointer-Based Atomic Rotation (Delta-First)
 
-## Roadmap
+To support notification workflows without relying on non-atomic S3 directory operations:
 
-- **Detail Page Scaping:** The pipeline will be scaled to scrape, extract, and cache the full HTML content of individual notice detail pages into S3.
+- A small pointer file is maintained:
+- uRing/{campus}/new.pointer.json
+- The pointer contains only the S3 key of the latest snapshot.
+- Consumers:
 
-### Todo
+ 1. Read new.pointer.json
+ 2. Fetch the referenced snapshot
 
-- [ ] Deploy the crawler to a production environment with proper monitoring.
-- [ ] Enhance the CMS selector detection algorithm for better accuracy.
+- Updating the pointer is the only overwrite operation, making the rotation effectively atomic.
+
+This replaces directory move/overwrite patterns and avoids intermediate inconsistent states.
+
+## Canonical Notice Identification
+
+Each notice is assigned a canonical, deterministic identifier derived from stable attributes such as:
+
+- campus
+- department_id
+- board_id
+- original notice URL
+
+This ensures:
+
+- Reliable deduplication
+- Idempotent writes
+- Stability across retries and minor content changes
+
+## Concurrency & Idempotency
+
+- The crawler is designed to tolerate overlapping or delayed executions.
+- Idempotency is enforced at the notice storage level.
+- Optional campus-level locking (e.g., DynamoDB conditional writes or S3-based markers) can be enabled to prevent redundant snapshot generation.
+
+## Retention & Lifecycle Management
+
+- S3 lifecycle rules are applied per prefix:
+- events/: long-term retention
+- snapshots/: short to medium retention
+- Old snapshots can be safely expired without affecting historical data.
+- Pointer files always reference a valid snapshot.
+
+## Deployment Model
+
+- The crawler runs as an AWS Lambda (ARM64) binary built using cargo lambda.
+- Infrastructure is managed via Terraform.
+- No persistent compute or database is required.
+
+## Future Extensions
+
+- Detail page scraping with HTML content cached alongside notice events
+- Change detection at the content level (diff-based updates)
+- Downstream fan-out via SQS/SNS for large-scale notification delivery
+- Metrics and tracing via CloudWatch (latency, delta size, error rate)
+
+## Summary
+
+This architecture treats notice data as immutable events, separates write-optimized and read-optimized paths, and uses pointer-based rotation to achieve atomicity on top of S3.
+
+The result is a crawler that is:
+
+- Robust under retries
+- Safe under concurrency
+- Simple to consume
+- Easy to evolve
