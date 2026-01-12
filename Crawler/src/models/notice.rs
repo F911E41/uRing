@@ -2,6 +2,7 @@
 
 //! Notice data structure.
 
+use sha2::{Digest, Sha256};
 use serde::{Deserialize, Serialize};
 
 /// A notice fetched from a board.
@@ -53,6 +54,21 @@ impl Notice {
             .replace("{date}", &self.date)
             .replace("{link}", &self.link)
     }
+
+    /// Compute a canonical identifier for deduplication.
+    pub fn canonical_id(&self) -> String {
+        let normalized = format!(
+            "{}|{}|{}|{}",
+            self.campus.trim().to_lowercase(),
+            self.department_id.trim().to_lowercase(),
+            self.board_id.trim().to_lowercase(),
+            self.link.trim().to_lowercase()
+        );
+        let mut hasher = Sha256::new();
+        hasher.update(normalized.as_bytes());
+        let digest = hasher.finalize();
+        hex::encode(digest)
+    }
 }
 
 #[cfg(test)]
@@ -78,5 +94,13 @@ mod tests {
         let notice = sample_notice();
         let result = notice.format("[{dept_name}] {title}");
         assert_eq!(result, "[Department] Test Title");
+    }
+
+    #[test]
+    fn test_canonical_id_is_stable() {
+        let notice = sample_notice();
+        let first = notice.canonical_id();
+        let second = notice.canonical_id();
+        assert_eq!(first, second);
     }
 }

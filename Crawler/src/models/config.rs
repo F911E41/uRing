@@ -730,7 +730,7 @@ mod defaults {
         "Storage: {count} notices saved to {path}".into()
     }
     pub fn msg_storage_paths_header() -> String {
-        "S3 Storage Paths (for Lambda deployment)".into()
+        "S3 Storage Paths (events + snapshots)".into()
     }
 
     // Archive message defaults
@@ -749,10 +749,10 @@ mod defaults {
 
     // Load message defaults
     pub fn msg_load_new() -> String {
-        "Loading new notices".into()
+        "Loading latest snapshot".into()
     }
     pub fn msg_load_archive() -> String {
-        "Loading notices from {year}-{month}".into()
+        "Loading event notices from {year}-{month}".into()
     }
     pub fn msg_load_complete() -> String {
         "Loaded {count} notices".into()

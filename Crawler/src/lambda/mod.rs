@@ -5,9 +5,8 @@
 //! This module provides the Lambda function entry point that:
 //! 1. Loads sitemap from S3 (or embedded/bundled)
 //! 2. Crawls all department boards
-//! 3. Detects delta (new notices)
-//! 4. Stores new notices to S3 New/ directory
-//! 5. Rotates previous New/ to monthly archive
+//! 3. Stores new notices as append-only events
+//! 4. Writes a delta snapshot and updates the pointer
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -32,10 +31,6 @@ pub struct CrawlRequest {
 
     /// Specific campus to crawl (optional, crawls all if not specified)
     pub campus: Option<String>,
-
-    /// Whether to skip rotation (for testing)
-    #[serde(default)]
-    pub skip_rotation: bool,
 }
 
 /// Lambda response payload.
@@ -49,9 +44,6 @@ pub struct CrawlResponse {
 
     /// Number of new notices (delta)
     pub new_notices: usize,
-
-    /// Number of notices rotated to archive
-    pub archived_notices: usize,
 
     /// Error message if any
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -67,7 +59,6 @@ impl Default for CrawlResponse {
             success: false,
             total_notices: 0,
             new_notices: 0,
-            archived_notices: 0,
             error: None,
             execution_time_ms: 0,
         }
@@ -92,11 +83,8 @@ pub async fn handler(
             response.success = true;
             response.execution_time_ms = start.elapsed().as_millis() as u64;
             info!(
-                "Crawl completed: {} total, {} new, {} archived in {}ms",
-                response.total_notices,
-                response.new_notices,
-                response.archived_notices,
-                response.execution_time_ms
+                "Crawl completed: {} total, {} new in {}ms",
+                response.total_notices, response.new_notices, response.execution_time_ms
             );
             Ok(response)
         }
@@ -131,51 +119,42 @@ async fn run_crawl(request: &CrawlRequest) -> Result<CrawlResponse> {
         });
     }
 
-    // Step 1: Rotate existing New/ to archive (before overwriting)
-    let archived_count = if !request.skip_rotation {
-        let mut archived = 0;
-        for campus in &campuses {
-            let campus_storage = storage.with_campus(&campus.campus);
-            let meta = campus_storage.rotate_to_archive().await?;
-            archived += meta.notice_count;
-        }
-        archived
-    } else {
-        0
-    };
-
-    // Step 2: Crawl all boards
+    // Step 1: Crawl all boards
     let crawler = NoticeCrawler::new(Arc::new(config));
     let current_notices = crawler.fetch_all(&campuses).await?;
 
-    // Step 3: Delta detection
-    let (new_notices, delta_count) = if request.force_full {
-        (current_notices.clone(), current_notices.len())
-    } else {
-        // Load previous "New" for comparison (but it's already rotated, so load from archive)
-        // For simplicity, we consider all crawled as "new" since we just rotated
-        (current_notices.clone(), current_notices.len())
-    };
-
-    // Step 4: Store to New/
+    // Step 2: Store events + snapshot per campus
     let mut notices_by_campus: HashMap<String, Vec<Notice>> = HashMap::new();
-    for notice in &new_notices {
+    for notice in &current_notices {
         notices_by_campus
             .entry(notice.campus.clone())
             .or_default()
             .push(notice.clone());
     }
 
-    for (campus, notices) in notices_by_campus {
+    let mut new_notice_count = 0;
+    for (campus, campus_notices) in notices_by_campus {
         let campus_storage = storage.with_campus(&campus);
-        campus_storage.store_new(&notices).await?;
+        let summary = campus_storage.store_events(&campus_notices).await?;
+        let snapshot_notices = if request.force_full {
+            campus_notices
+        } else {
+            summary.stored_notices
+        };
+        new_notice_count += snapshot_notices.len();
+        info!(
+            "Campus {}: {} new, {} skipped",
+            campus,
+            snapshot_notices.len(),
+            summary.skipped_count
+        );
+        campus_storage.write_snapshot(&snapshot_notices).await?;
     }
 
     Ok(CrawlResponse {
         success: true,
         total_notices: current_notices.len(),
-        new_notices: delta_count,
-        archived_notices: archived_count,
+        new_notices: new_notice_count,
         error: None,
         execution_time_ms: 0,
     })
@@ -252,7 +231,6 @@ mod tests {
         let req: CrawlRequest = serde_json::from_str(json).unwrap();
         assert!(!req.force_full);
         assert!(req.campus.is_none());
-        assert!(!req.skip_rotation);
     }
 
     #[test]

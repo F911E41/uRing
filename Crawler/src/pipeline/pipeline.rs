@@ -6,7 +6,6 @@ use crate::error::Result;
 use crate::models::{Config, LocaleConfig};
 use crate::utils::log;
 
-use super::archive::run_archive;
 use super::crawl::run_crawler;
 use super::map::run_mapper;
 
@@ -19,7 +18,7 @@ pub async fn run_pipeline(
 ) -> Result<()> {
     log::header(&locale.messages.pipeline_starting);
 
-    let total_steps = if skip_map { 2 } else { 3 };
+    let total_steps = if skip_map { 1 } else { 2 };
     let mut current_step = 1;
 
     if !skip_map {
@@ -34,10 +33,6 @@ pub async fn run_pipeline(
 
     log::step(current_step, total_steps, "Crawl - Fetching notices");
     run_crawler(config, locale, base_path).await?;
-    current_step += 1;
-
-    log::step(current_step, total_steps, "Archive - Storing notices");
-    run_archive(config, locale).await?;
 
     log::success(&locale.messages.pipeline_complete);
 

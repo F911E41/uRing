@@ -32,7 +32,7 @@ crawler_complete = "Crawl complete"
 total_notices = "Total notices fetched: {count}"
 saved_notices = "Saved notices to {path}"
 storage_saved = "Storage: {count} notices saved to {path}"
-storage_paths_header = "S3 Storage Paths (for Lambda deployment)"
+storage_paths_header = "S3 Storage Paths (events + snapshots)"
 
 # Archive messages
 archive_starting = "Archiving notices"
@@ -41,8 +41,8 @@ archive_location = "Location: {path}"
 archive_timestamp = "Timestamp: {time}"
 
 # Load messages
-load_new = "Loading new notices"
-load_archive = "Loading notices from {year}-{month}"
+load_new = "Loading latest snapshot"
+load_archive = "Loading event notices from {year}-{month}"
 load_complete = "Loaded {count} notices"
 load_notice_item = "{title} [{date}]"
 

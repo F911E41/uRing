@@ -22,7 +22,7 @@ use clap::{Parser, Subcommand};
 
 use crate::error::Result;
 use crate::models::{Config, LocaleConfig};
-use crate::pipeline::{run_archive, run_crawler, run_load, run_mapper, run_pipeline, run_validate};
+use crate::pipeline::{run_crawler, run_load, run_mapper, run_pipeline, run_validate};
 use crate::utils::log;
 
 #[derive(Parser, Debug)]
@@ -64,11 +64,9 @@ enum Command {
     },
     /// Validate configuration and seed data
     Validate,
-    /// Archive new notices to monthly storage
-    Archive,
     /// Load notices from storage
     Load {
-        /// Load from "new" storage or specific month (YYYY-MM format)
+        /// Load from "new" snapshot or specific month (YYYY-MM format)
         #[arg(long, default_value = "new")]
         from: String,
     },
@@ -109,7 +107,6 @@ async fn main() -> Result<()> {
             run_crawler(&config, &locale, &base_path).await?;
         }
         Command::Validate => run_validate(&locale, &base_path)?,
-        Command::Archive => run_archive(&config, &locale).await?,
         Command::Load { from } => run_load(&config, &locale, &from).await?,
         Command::Pipeline { skip_map } => {
             run_pipeline(&config, &locale, &base_path, skip_map).await?

@@ -1,5 +1,6 @@
 // src/pipeline/crawl.rs
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -10,7 +11,7 @@ use crate::models::{Campus, Config, LocaleConfig, Notice};
 use crate::services::NoticeCrawler;
 use crate::storage::{
     LocalStorage, NoticeStorage,
-    paths::{campus_prefix, monthly_archive_key, monthly_prefix, new_notices_key},
+    paths::{campus_prefix, event_key, events_prefix, pointer_key, snapshot_key},
 };
 use crate::utils::{log, save_notices};
 
@@ -60,15 +61,46 @@ pub async fn run_crawler(
     save_notices(&notices, config, locale)?;
 
     let storage = LocalStorage::new(&config.paths.output);
-    let metadata = storage.store_new(&notices).await?;
+    let mut notices_by_campus: HashMap<String, Vec<Notice>> = HashMap::new();
+    for notice in &notices {
+        notices_by_campus
+            .entry(notice.campus.clone())
+            .or_default()
+            .push(notice.clone());
+    }
 
-    log::success(
-        &locale
-            .messages
-            .storage_saved
-            .replace("{count}", &metadata.notice_count.to_string())
-            .replace("{path}", &metadata.location),
-    );
+    for (campus, campus_notices) in notices_by_campus {
+        let campus_storage = storage.with_campus(&campus);
+        let summary = campus_storage.store_events(&campus_notices).await?;
+        let snapshot_metadata = campus_storage
+            .write_snapshot(&summary.stored_notices)
+            .await?;
+
+        log::success(
+            &locale
+                .messages
+                .storage_saved
+                .replace("{count}", &summary.stored_notices.len().to_string())
+                .replace("{path}", &snapshot_metadata.snapshot_location),
+        );
+
+        if config.logging.show_progress {
+            log::sub_item(&format!(
+                "Stored {} of {} notices ({} skipped)",
+                summary.stored_notices.len(),
+                summary.total_count(),
+                summary.skipped_count
+            ));
+            log::sub_item(&format!(
+                "Snapshot pointer: {}",
+                snapshot_metadata.pointer_location
+            ));
+            log::sub_item(&format!(
+                "Snapshot timestamp: {}",
+                snapshot_metadata.timestamp
+            ));
+        }
+    }
 
     if config.logging.show_progress {
         let bucket_prefix = "uRing";
@@ -77,17 +109,21 @@ pub async fn run_crawler(
         let now = Utc::now();
         log::info(&locale.messages.storage_paths_header);
         log::sub_item(&format!(
-            "New notices ({}): {}",
+            "Event example ({}): {}",
             example_campus,
-            new_notices_key(&campus_root)
+            event_key(&campus_root, now.year(), now.month(), "notice_id")
         ));
         log::sub_item(&format!(
-            "Archive: {}",
-            monthly_archive_key(&campus_root, now)
+            "Events prefix: {}",
+            events_prefix(&campus_root, now.year(), now.month())
         ));
         log::sub_item(&format!(
-            "Monthly prefix: {}",
-            monthly_prefix(&campus_root, now.year(), now.month())
+            "Snapshot: {}",
+            snapshot_key(&campus_root, now)
+        ));
+        log::sub_item(&format!(
+            "Pointer: {}",
+            pointer_key(&campus_root)
         ));
     }
 

@@ -2,22 +2,25 @@
 
 //! AWS S3 storage implementation.
 //!
-//! Implements the Delta-First approach for notice storage:
-//! - New notices are stored in `{bucket}/{campus}/New/notices.json`
-//! - On rotation, content is moved to monthly archive `{bucket}/{campus}/YYYY-MM/notices.json`
+//! Implements the append-only event log + snapshot pointer approach:
+//! - Events are stored at `{bucket}/{campus}/events/YYYY-MM/{notice_id}.json`
+//! - Snapshots are stored at `{bucket}/{campus}/snapshots/{timestamp}.json`
+//! - Pointer is stored at `{bucket}/{campus}/new.pointer.json`
 
 use aws_sdk_s3::Client;
 use aws_sdk_s3::primitives::ByteStream;
 
-use chrono::{DateTime, Utc};
+use chrono::{Datelike, NaiveDate, Utc};
 use serde::de::DeserializeOwned;
 use tracing::{info, warn};
 
 use crate::error::{AppError, Result};
 use crate::models::Notice;
-use crate::storage::{NoticeStorage, StorageMetadata, paths};
+use crate::storage::{
+    EventStorageSummary, NoticeStorage, SnapshotMetadata, SnapshotPointer, paths,
+};
 
-/// S3-based notice storage implementing the Delta-First approach.
+/// S3-based notice storage implementing the append-only approach.
 pub struct S3Storage {
     client: Client,
     bucket: String,
@@ -99,16 +102,19 @@ impl S3Storage {
             .unwrap_or_default())
     }
 
-    /// Write JSON to S3.
-    async fn write_json(&self, key: &str, notices: &[Notice]) -> Result<()> {
-        let json = serde_json::to_string_pretty(notices)?;
-        let bytes = ByteStream::from(json.into_bytes());
+    /// Read pointer JSON from S3.
+    async fn read_pointer(&self, key: &str) -> Result<Option<SnapshotPointer>> {
+        self.read_json_optional::<SnapshotPointer>(key).await
+    }
 
+    /// Write JSON to S3.
+    async fn write_json_bytes(&self, key: &str, bytes: Vec<u8>) -> Result<()> {
+        let body = ByteStream::from(bytes);
         self.client
             .put_object()
             .bucket(&self.bucket)
             .key(key)
-            .body(bytes)
+            .body(body)
             .content_type("application/json")
             .send()
             .await
@@ -119,32 +125,20 @@ impl S3Storage {
                 ))
             })?;
 
-        info!(
-            "Wrote {} notices to s3://{}/{}",
-            notices.len(),
-            self.bucket,
-            key
-        );
+        info!("Wrote object to s3://{}/{}", self.bucket, key);
         Ok(())
     }
 
-    /// Delete an object from S3 (used after rotation).
-    async fn delete_object(&self, key: &str) -> Result<()> {
-        self.client
-            .delete_object()
-            .bucket(&self.bucket)
-            .key(key)
-            .send()
-            .await
-            .map_err(|e| {
-                AppError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    e.to_string(),
-                ))
-            })?;
+    /// Write a notice JSON to S3.
+    async fn write_notice(&self, key: &str, notice: &Notice) -> Result<()> {
+        let json = serde_json::to_string_pretty(notice)?;
+        self.write_json_bytes(key, json.into_bytes()).await
+    }
 
-        info!("Deleted s3://{}/{}", self.bucket, key);
-        Ok(())
+    /// Write a snapshot JSON to S3.
+    async fn write_snapshot_file(&self, key: &str, notices: &[Notice]) -> Result<()> {
+        let json = serde_json::to_string_pretty(notices)?;
+        self.write_json_bytes(key, json.into_bytes()).await
     }
 
     /// Check if an object exists in S3.
@@ -157,164 +151,138 @@ impl S3Storage {
             .await
             .is_ok()
     }
+
+    /// List all objects with a prefix.
+    async fn list_keys(&self, prefix: &str) -> Result<Vec<String>> {
+        let mut keys = Vec::new();
+        let mut continuation: Option<String> = None;
+
+        loop {
+            let mut request = self
+                .client
+                .list_objects_v2()
+                .bucket(&self.bucket)
+                .prefix(prefix);
+            if let Some(token) = continuation.clone() {
+                request = request.continuation_token(token);
+            }
+
+            let response = request.send().await.map_err(|e| {
+                AppError::Io(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    e.to_string(),
+                ))
+            })?;
+
+            if let Some(contents) = response.contents {
+                for item in contents {
+                    if let Some(key) = item.key {
+                        keys.push(key);
+                    }
+                }
+            }
+
+            continuation = response.next_continuation_token;
+            if continuation.is_none() {
+                break;
+            }
+        }
+
+        Ok(keys)
+    }
+
+    fn notice_month(notice: &Notice) -> (i32, u32) {
+        for fmt in ["%Y-%m-%d", "%Y.%m.%d", "%Y/%m/%d"] {
+            if let Ok(date) = NaiveDate::parse_from_str(&notice.date, fmt) {
+                return (date.year(), date.month());
+            }
+        }
+        let now = Utc::now();
+        (now.year(), now.month())
+    }
 }
 
 impl NoticeStorage for S3Storage {
-    /// Store notices in the "New" directory.
-    ///
-    /// This is the hot data used for triggering notifications.
-    async fn store_new(&self, notices: &[Notice]) -> Result<StorageMetadata> {
-        let key = paths::new_notices_key(&self.prefix);
+    /// Store notices in the append-only event log.
+    async fn store_events(&self, notices: &[Notice]) -> Result<EventStorageSummary> {
+        let mut stored = Vec::new();
+        let mut skipped = 0;
+
+        for notice in notices {
+            let (year, month) = Self::notice_month(notice);
+            let notice_id = notice.canonical_id();
+            let key = paths::event_key(&self.prefix, year, month, &notice_id);
+
+            if self.exists(&key).await {
+                skipped += 1;
+                continue;
+            }
+
+            self.write_notice(&key, notice).await?;
+            stored.push(notice.clone());
+        }
+
+        Ok(EventStorageSummary {
+            stored_notices: stored,
+            skipped_count: skipped,
+        })
+    }
+
+    /// Write a snapshot and update pointer.
+    async fn write_snapshot(&self, notices: &[Notice]) -> Result<SnapshotMetadata> {
         let timestamp = Utc::now();
+        let snapshot_key = paths::snapshot_key(&self.prefix, timestamp);
+        let pointer_key = paths::pointer_key(&self.prefix);
 
-        self.write_json(&key, notices).await?;
+        self.write_snapshot_file(&snapshot_key, notices).await?;
 
-        Ok(StorageMetadata {
+        let pointer = SnapshotPointer::new(snapshot_key.clone());
+        let pointer_json = serde_json::to_string_pretty(&pointer)?;
+        self.write_json_bytes(&pointer_key, pointer_json.into_bytes())
+            .await?;
+
+        Ok(SnapshotMetadata {
             notice_count: notices.len(),
             timestamp,
-            location: format!("s3://{}/{}", self.bucket, key),
+            snapshot_location: format!("s3://{}/{}", self.bucket, snapshot_key),
+            pointer_location: format!("s3://{}/{}", self.bucket, pointer_key),
         })
     }
 
-    /// Rotate notices from "New" to monthly archive.
-    ///
-    /// This performs an atomic rotation:
-    /// 1. Read existing notices from New/
-    /// 2. Merge with existing monthly archive (if any)
-    /// 3. Write to monthly archive
-    /// 4. Delete New/ (will be overwritten by next crawl)
-    async fn rotate_to_archive(&self) -> Result<StorageMetadata> {
-        let now = Utc::now();
-        let new_key = paths::new_notices_key(&self.prefix);
-        let archive_key = paths::monthly_archive_key(&self.prefix, now);
+    /// Load notices from the latest snapshot pointer.
+    async fn load_snapshot(&self) -> Result<Vec<Notice>> {
+        let pointer_key = paths::pointer_key(&self.prefix);
+        let pointer = match self.read_pointer(&pointer_key).await? {
+            Some(pointer) => pointer,
+            None => return Ok(Vec::new()),
+        };
 
-        // Read current "New" notices
-        let new_notices = self.read_json(&new_key).await?;
+        self.read_json(&pointer.snapshot_key).await
+    }
 
-        if new_notices.is_empty() {
-            warn!("No notices in New/ to rotate");
-            return Ok(StorageMetadata {
-                notice_count: 0,
-                timestamp: now,
-                location: format!("s3://{}/{}", self.bucket, archive_key),
-            });
+    /// Load notices from events for a specific month.
+    async fn load_events(&self, year: i32, month: u32) -> Result<Vec<Notice>> {
+        let prefix = paths::events_prefix(&self.prefix, year, month);
+        let keys = self.list_keys(&prefix).await?;
+        if keys.is_empty() {
+            return Ok(Vec::new());
         }
 
-        // Read existing archive (if any)
-        let mut archive_notices = self.read_json(&archive_key).await?;
-        let initial_count = archive_notices.len();
-
-        // Merge: append new notices, deduplicate by link
-        let existing_links: std::collections::HashSet<_> =
-            archive_notices.iter().map(|n| &n.link).collect();
-
-        let unique_new: Vec<_> = new_notices
-            .into_iter()
-            .filter(|n| !existing_links.contains(&n.link))
-            .collect();
-
-        let added_count = unique_new.len();
-        archive_notices.extend(unique_new);
-
-        // Sort by date descending
-        archive_notices.sort_by(|a, b| b.date.cmp(&a.date));
-
-        // Write merged archive
-        self.write_json(&archive_key, &archive_notices).await?;
-
-        info!(
-            "Rotated {} new notices to archive (total: {}, added: {})",
-            added_count,
-            archive_notices.len(),
-            added_count
-        );
-
-        // Clear New/ by deleting it (optional, or leave for overwrite)
-        if self.exists(&new_key).await {
-            self.delete_object(&new_key).await?;
+        let mut notices = Vec::new();
+        for key in keys {
+            if !key.ends_with(".json") {
+                continue;
+            }
+            let content = self.read_json_optional::<Notice>(&key).await?;
+            if let Some(notice) = content {
+                notices.push(notice);
+            }
         }
 
-        Ok(StorageMetadata {
-            notice_count: added_count,
-            timestamp: now,
-            location: format!("s3://{}/{}", self.bucket, archive_key),
-        })
-    }
+        if notices.is_empty() {
+            warn!("No notices found under prefix {}", prefix);
+        }
 
-    /// Load notices from the "New" directory.
-    async fn load_new(&self) -> Result<Vec<Notice>> {
-        let key = paths::new_notices_key(&self.prefix);
-        self.read_json(&key).await
-    }
-
-    /// Load notices from a specific month's archive.
-    async fn load_archive(&self, year: i32, month: u32) -> Result<Vec<Notice>> {
-        let key = format!(
-            "{}/{:04}-{:02}/notices.json",
-            self.prefix.trim_end_matches('/'),
-            year,
-            month
-        );
-        self.read_json(&key).await
-    }
-}
-
-/// Delta detection: find notices that are new compared to previous data.
-pub fn detect_delta(current: &[Notice], previous: &[Notice]) -> Vec<Notice> {
-    let previous_links: std::collections::HashSet<_> = previous.iter().map(|n| &n.link).collect();
-
-    current
-        .iter()
-        .filter(|n| !previous_links.contains(&n.link))
-        .cloned()
-        .collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_detect_delta() {
-        let previous = vec![Notice {
-            campus: "신촌".to_string(),
-            college: "공대".to_string(),
-            department_id: "cse".to_string(),
-            department_name: "컴퓨터".to_string(),
-            board_id: "notice".to_string(),
-            board_name: "공지사항".to_string(),
-            title: "Old Notice".to_string(),
-            date: "2025-01-01".to_string(),
-            link: "https://example.com/old".to_string(),
-        }];
-
-        let current = vec![
-            Notice {
-                campus: "신촌".to_string(),
-                college: "공대".to_string(),
-                department_id: "cse".to_string(),
-                department_name: "컴퓨터".to_string(),
-                board_id: "notice".to_string(),
-                board_name: "공지사항".to_string(),
-                title: "Old Notice".to_string(),
-                date: "2025-01-01".to_string(),
-                link: "https://example.com/old".to_string(),
-            },
-            Notice {
-                campus: "신촌".to_string(),
-                college: "공대".to_string(),
-                department_id: "cse".to_string(),
-                department_name: "컴퓨터".to_string(),
-                board_id: "notice".to_string(),
-                board_name: "공지사항".to_string(),
-                title: "New Notice".to_string(),
-                date: "2025-01-11".to_string(),
-                link: "https://example.com/new".to_string(),
-            },
-        ];
-
-        let delta = detect_delta(&current, &previous);
-        assert_eq!(delta.len(), 1);
-        assert_eq!(delta[0].title, "New Notice");
+        Ok(notices)
     }
 }

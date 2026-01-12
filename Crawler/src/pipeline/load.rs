@@ -11,7 +11,7 @@ pub async fn run_load(config: &Config, locale: &LocaleConfig, from: &str) -> Res
 
     let notices = if from == "new" {
         log::info(&locale.messages.load_new);
-        storage.load_new().await?
+        storage.load_snapshot().await?
     } else {
         let parts: Vec<&str> = from.split('-').collect();
         if parts.len() != 2 {
@@ -31,7 +31,7 @@ pub async fn run_load(config: &Config, locale: &LocaleConfig, from: &str) -> Res
                 .replace("{year}", &year.to_string())
                 .replace("{month}", &format!("{:02}", month)),
         );
-        storage.load_archive(year, month).await?
+        storage.load_events(year, month).await?
     };
 
     log::success(
