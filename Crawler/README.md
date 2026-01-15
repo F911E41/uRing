@@ -1,33 +1,34 @@
 # Crawler
 
-This document describes the internal architecture of the uRing Crawler, a serverless Rust-based crawler designed to ingest, deduplicate, and persist university notice data in a scalable and production-ready manner.
+This document describes the internal architecture of the **uRing Crawler**, a serverless Rust-based crawler designed to ingest, deduplicate, and persist university notice data in a scalable and production-ready manner.
 
 ## Table of Contents
 
-- [Design Principles](#design-principles)
-- [High-Level Architecture](#high-level-architecture)
-- [Data Ingestion Pipeline](#data-ingestion-pipeline)
-- [Storage Strategy](#storage-strategy)
-  - [S3 Bucket Layout](#s3-bucket-layout)
-  - [Append-Only Event Storage](#append-only-event-storage)
-  - [Snapshot Generation (Read-Optimized Views)](#snapshot-generation-read-optimized-views)
-  - [Pointer-Based Atomic Rotation (Delta-First)](#pointer-based-atomic-rotation-delta-first)
-- [Canonical Notice Identification](#canonical-notice-identification)
-- [Concurrency & Idempotency](#concurrency--idempotency)
-- [Retention & Lifecycle Management](#retention--lifecycle-management)
-- [Deployment Model](#deployment-model)
-- [Future Extensions](#future-extensions)
-- [Summary](#summary)
+* [Design Principles](#design-principles)
+* [High-Level Architecture](#high-level-architecture)
+* [Data Ingestion Pipeline](#data-ingestion-pipeline)
+* [Storage Strategy](#storage-strategy)
+      - [S3 Bucket Layout (Snapshot-based)](#s3-bucket-layout-snapshot-based)
+      - [Versioned Snapshot Generation](#versioned-snapshot-generation)
+      - [Data Components](#data-components)
+      - [Pointer-Based Atomic Rotation](#pointer-based-atomic-rotation)
+      - [Cache Optimization](#cache-optimization)
+* [Canonical Notice Identification](#canonical-notice-identification)
+* [Concurrency & Idempotency](#concurrency--idempotency)
+* [Retention & Lifecycle Management](#retention--lifecycle-management)
+* [Deployment Model](#deployment-model)
+* [Future Extensions](#future-extensions)
+* [Summary](#summary)
 
 ## Design Principles
 
 The crawler architecture is guided by the following principles:
 
-- Stateless execution suitable for serverless environments (AWS Lambda)
-- Append-only storage to ensure data integrity and auditability
-- Delta-first data flow to support real-time notification use cases
-- Clear separation between ingestion, storage, and consumption
-- Operational simplicity over premature optimization
+* **Stateless Execution**: Optimized for AWS Lambda with no local state dependency.
+* **Snapshot-based Persistence**: Each crawl result is stored as a versioned, immutable snapshot.
+* **Delta-first Data Flow**: Designed to easily identify and broadcast new notices.
+* **Structured Retrieval**: Clear separation between index, metadata, and detail data.
+* **Operational Simplicity**: Using S3 as a structured database for high availability and low cost.
 
 ## High-Level Architecture
 
@@ -38,130 +39,118 @@ The crawler architecture is guided by the following principles:
 [ Lambda Crawler ]
           |
           v
-[ S3 (Append-only Storage + Snapshot Pointer) ]
+[ S3 (Structured Snapshots + Version Pointer) ]
           |
           v
 [ Consumer (API / App / Notification Service) ]
+
 ```
 
 ## Data Ingestion Pipeline
 
-- The crawler is triggered on a 10-minute interval using Amazon EventBridge.
-- Each execution fetches notices from configured department boards based on a predefined sitemap.
-- Crawling is idempotent at the notice level using a canonical notice identifier.
-- The crawler does not maintain any in-memory or persistent state between executions.
+* The crawler is triggered on a 10-minute interval using **Amazon EventBridge**.
+* Each execution fetches notices from configured department boards based on a predefined **siteMap**.
+* Crawling is idempotent at the notice level using a canonical notice identifier.
+* Results are bundled into a new `{version}` directory, representing a consistent state of the system at that time.
 
 ## Storage Strategy
 
-### S3 Bucket Layout
+### S3 Bucket Layout (Snapshot-based)
 
-All data is stored under a single logical namespace: uRing/.
+All data is organized under versioned snapshots to ensure atomicity and consistency for consumers.
 
-```text
-uRing/
- ├─ config/
- │   └─ sitemap.json
- │
- ├─ {campus}/
- │   ├─ events/
- │   │   └─ 2026-01/
- │   │       ├─ {notice_id}.json
- │   │       └─ ...
- │   │
- │   ├─ snapshots/
- │   │   ├─ 2026-01-12T11:03:00Z.json
- │   │   └─ ...
- │   │
- │   └─ new.pointer.json
+```shell
+config/
+ ├─ config.toml                 # Crawler runtime configuration
+ ├─ seed.toml                   # Crawler seed URLs and parameters
+ └─ siteMap.json                # Crawler configuration used for this version
+
+snapshots/{version}/
+ ├── index/
+ │    ├── all.json              # Global index of all active notices
+ │    ├── campus/
+ │    │    ├── seoul.json       # Campus-specific indices
+ │    │    └── mirae.json
+ │    └── category/
+ │         └── academic.json    # Category-specific indices
+ ├── meta/
+ │    ├── campus.json           # Valid campus metadata
+ │    ├── category.json         # Valid category metadata
+ │    └── source.json           # Data source/origin mapping
+ ├── detail/
+ │    └── {noticeId}.json       # Full content of individual notices
+ └── aux/
+      ├── diff.json             # Changes compared to the previous version (the "Delta")
+      └── stats.json            # Crawl statistics (count, latency, success rate)
 ```
 
-### Append-Only Event Storage
+### Versioned Snapshot Generation
 
-- Each notice is persisted as an immutable event object:
-  - uRing/{campus}/events/{yyyy-mm}/{notice_id}.json
-- Once written, notice objects are never mutated or overwritten.
-- This enables:
-  - Safe retries
-  - Historical inspection
-  - Deterministic reprocessing
+During each crawl cycle, the crawler generates a new `{version}` (typically a timestamp or UUID).
 
-### Snapshot Generation (Read-Optimized Views)
+* **Consistency**: All files within a version are guaranteed to be mutually consistent.
+* **Immutability**: Once a version is written, it is never modified.
+* **Granularity**: Consumers can choose to fetch only the `index/` for lists or `detail/` for specific content.
 
-- During each crawl cycle, the crawler aggregates newly discovered notices into a snapshot file:
-  - uRing/{campus}/snapshots/{timestamp}.json
-- Snapshots are optimized for read simplicity, not write performance.
-- Snapshots represent the current `hot delta view` for a campus.
+### Data Components
 
-### Pointer-Based Atomic Rotation (Delta-First)
+* **Index**: Read-optimized JSON lists containing minimal fields for rendering UI lists.
+* **Meta**: Reference data that helps the frontend or API interpret campus and category IDs.
+* **Detail**: The "Source of Truth" for each notice, containing the full body, attachments, and original metadata.
+* **Aux (Delta-First)**: The `diff.json` provides a summary of added or updated notices, allowing notification services to trigger without comparing full indices.
 
-Delta-first means the notification system consumes only the latest “new notices” snapshot (hot view), while the full history remains in append-only event storage.
+### Pointer-Based Atomic Rotation
 
-To support notification workflows without relying on non-atomic S3 directory operations:
+To ensure consumers always see a consistent state without relying on S3 directory listing performance:
 
-- A small pointer file is maintained:
-  - uRing/{campus}/new.pointer.json
-- The pointer contains only the S3 key of the latest snapshot.
-- Consumers:
+* A **Pointer File** is maintained at the root: `latest.json`.
+* It contains the key of the most recent successful `{version}`.
+* **Atomic Switch**: Updating this single file "activates" the new snapshot globally.
+* **Fallback**: In case of a crawl failure, the pointer remains at the previous version, ensuring the API/App never serves a broken state.
 
- 1. Read new.pointer.json
- 2. Fetch the referenced snapshot
+### Cache Optimization
 
-- Updating the pointer is the only overwrite operation, making the rotation effectively atomic.
-
-This replaces directory move/overwrite patterns and avoids intermediate inconsistent states.
+* latest.json : max-age=2~10, stale-while-revalidate=...
+* snapshots/{version}/index/* : max-age=1y, immutable
+* snapshots/{version}/meta/* : max-age=1y, immutable
+* snapshots/{version}/detail/* : max-age=1y, immutable
+* snapshots/{version}/aux/* : max-age=1h, stale-while-revalidate=...
 
 ## Canonical Notice Identification
 
-> The identifier can be implemented as a stable hash (e.g., SHA-256) over normalized attributes.
+Each notice is assigned a deterministic identifier derived from stable attributes:
 
-Each notice is assigned a canonical, deterministic identifier derived from stable attributes such as:
+* **Campus & Department ID**
+* **Original Notice Number/ID** from the source system
+* **Stable URL**
 
-- campus
-- department_id
-- board_id
-- original notice URL
-
-This ensures:
-
-- Reliable deduplication
-- Idempotent writes
-- Stability across retries and minor content changes
+This ensures reliable deduplication across multiple crawl cycles and maintains consistent `{noticeId}.json` filenames.
 
 ## Concurrency & Idempotency
 
-- The crawler is designed to tolerate overlapping or delayed executions.
-- Idempotency is enforced at the notice storage level.
-- Optional campus-level locking (e.g., DynamoDB conditional writes or S3-based markers) can be enabled to prevent redundant snapshot generation.
+* **Isolated Writes**: Since each execution writes to a unique `{version}` path, there is no risk of write-collision.
+* **Idempotency**: Retrying a crawl for the same version (if manually triggered) will yield the same directory structure.
 
 ## Retention & Lifecycle Management
 
-- S3 lifecycle rules are applied per prefix:
-  - events/: long-term retention
-  - snapshots/: short to medium retention
-- Old snapshots can be safely expired without affecting historical data.
-- Pointer files always reference a valid snapshot.
+* **S3 Lifecycle Rules**:
+* `snapshots/{version}/detail/`: Long-term retention (Event Storage).
+* `snapshots/{version}/index/`: Short to medium retention (Read Cache).
+
+* Old versions can be archived to Glacier or deleted after a set period, while the `latest` pointer ensures system continuity.
 
 ## Deployment Model
 
-- The crawler runs as an AWS Lambda (ARM64) binary built using `cargo lambda`.
-- Infrastructure is managed via Terraform.
-- No persistent compute or database is required.
+* **Runtime**: AWS Lambda (ARM64) binary built with `cargo lambda`.
+* **Infrastructure**: Managed via Terraform.
+* **Storage**: AWS S3 (Standard for active versions, Intelligent-Tiering for older ones).
 
 ## Future Extensions
 
-- Snapshots are short-lived and can be expired aggressively (e.g., 7–30 days), since the source of truth is the event log.
-- Detail page scraping with HTML content cached alongside notice events
-- Change detection at the content level (diff-based updates)
-- Downstream fan-out via SQS/SNS for large-scale notification delivery
-- Metrics and tracing via CloudWatch (latency, delta size, error rate)
+* **Micro-Caching**: Serving the `index/` files via CloudFront with aggressive edge caching.
+* **Incremental Crawling**: Using the previous version's indices to skip unchanged boards.
+* **Full-Text Search**: Ingesting the `detail/` files into a lightweight search index (e.g., Meilisearch or OpenSearch).
 
 ## Summary
 
-This architecture treats notice data as immutable events, separates write-optimized and read-optimized paths, and uses pointer-based rotation to achieve atomicity on top of S3.
-
-The result is a crawler that is:
-
-- Robust under retries
-- Safe under concurrency
-- Simple to consume
-- Easy to evolve
+This architecture treats university notices as a series of immutable, versioned snapshots. By separating indices, details, and deltas into a structured S3 hierarchy, **uRing Crawler** achieves high reliability, easy auditability, and simple consumption for downstream services.
