@@ -36,16 +36,22 @@ pub async fn run_crawler(
     log::info(&locale.messages.crawler_fetching);
 
     let crawler = NoticeCrawler::new(Arc::new(config.clone()));
-    let notices = crawler.fetch_all(campuses).await?;
+    let outcome = crawler.fetch_all(campuses).await?;
+    let notices = outcome.notices;
 
     let end_time = Utc::now();
+    let success_rate = if outcome.detail_total == 0 {
+        0.0
+    } else {
+        (outcome.detail_total - outcome.detail_failures) as f32 / outcome.detail_total as f32
+    };
     let stats = CrawlStats {
         start_time,
         end_time,
         notice_count: notices.len(),
         department_count: total_depts,
         board_count: total_boards,
-        success_rate: 1.0, // Placeholder
+        success_rate,
     };
 
     let summary = storage.write_snapshot(&notices, campuses, &stats).await?;
@@ -64,6 +70,13 @@ pub async fn run_crawler(
     }
 
     log::success(&locale.messages.crawler_complete);
+
+    if outcome.board_failures > 0 || outcome.detail_failures > 0 {
+        log::warn(&format!(
+            "Crawl completed with {} board failures and {} notice failures",
+            outcome.board_failures, outcome.detail_failures
+        ));
+    }
 
     Ok(())
 }

@@ -4,19 +4,29 @@
 //!
 //! Fetches notices from department boards using configured CSS selectors.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
 
-use futures::future::try_join_all;
-use futures::stream::{self, StreamExt, TryStreamExt};
+use futures::stream::{self, StreamExt};
 use reqwest::Client;
 use scraper::{Html, Selector};
 
 use crate::error::{AppError, Result};
 use crate::models::{Board, Campus, Config, DepartmentRef, Notice};
+use crate::utils::log;
 use crate::utils::resolve_url;
 use crate::utils::url::extract_notice_id;
+
+/// Summary of a crawl run.
+#[derive(Debug, Default)]
+pub struct CrawlOutcome {
+    pub notices: Vec<Notice>,
+    pub board_total: usize,
+    pub board_failures: usize,
+    pub detail_total: usize,
+    pub detail_failures: usize,
+}
 
 /// Service for crawling notices from department boards.
 pub struct NoticeCrawler {
@@ -37,12 +47,13 @@ impl NoticeCrawler {
     }
 
     /// Fetch all notices from all campuses concurrently.
-    pub async fn fetch_all(&self, campuses: &[Campus]) -> Result<Vec<Notice>> {
+    pub async fn fetch_all(&self, campuses: &[Campus]) -> Result<CrawlOutcome> {
         let delay = Duration::from_millis(self.config.crawler.request_delay_ms);
         let concurrency = self.config.crawler.max_concurrent.max(1);
+        let board_lookup = Arc::new(Self::build_board_lookup(campuses));
 
-        // Stage 1: Fetch all notice lists from boards concurrently
-        let tasks: Vec<_> = campuses
+        // Stage 1: Fetch all notice lists from boards concurrently, but bounded by concurrency.
+        let board_jobs: Vec<_> = campuses
             .iter()
             .flat_map(|c| c.all_departments())
             .flat_map(|dept_ref| {
@@ -50,38 +61,76 @@ impl NoticeCrawler {
                     .dept
                     .boards
                     .iter()
-                    .map(move |board| self.fetch_board_list(dept_ref, board))
+                    .map(move |board| (dept_ref, board))
             })
             .collect();
 
-        let nested_notices = try_join_all(tasks).await?;
-        let notices: Vec<Notice> = nested_notices.into_iter().flatten().collect();
+        let mut outcome = CrawlOutcome {
+            board_total: board_jobs.len(),
+            ..CrawlOutcome::default()
+        };
+
+        let mut notice_buffer = Vec::new();
+        let mut board_stream = stream::iter(board_jobs)
+            .map(|(dept_ref, board)| async move {
+                let result = self.fetch_board_list(dept_ref, board).await;
+                (board, result)
+            })
+            .buffer_unordered(concurrency);
+
+        while let Some((board, result)) = board_stream.next().await {
+            match result {
+                Ok(notices) => notice_buffer.extend(notices),
+                Err(error) => {
+                    outcome.board_failures += 1;
+                    log::warn(&format!(
+                        "Failed to fetch board list {} ({}): {}",
+                        board.name, board.url, error
+                    ));
+                }
+            }
+
+            if delay.as_millis() > 0 {
+                tokio::time::sleep(delay).await;
+            }
+        }
 
         let mut seen = HashSet::new();
         let mut deduped = Vec::new();
-        for notice in notices {
+        for notice in notice_buffer {
             let id = notice.canonical_id();
             if seen.insert(id) {
                 deduped.push(notice);
             }
         }
 
-        // Stage 2: Fetch details for each notice concurrently
+        // Stage 2: Fetch details for each notice concurrently.
+        outcome.detail_total = deduped.len();
         let detailed_notices = stream::iter(deduped)
-            .map(|notice| self.fetch_notice_detail(notice, campuses))
+            .map(|notice| {
+                let board_lookup = Arc::clone(&board_lookup);
+                async move { self.fetch_notice_detail(notice, &board_lookup).await }
+            })
             .buffered(concurrency);
 
-        let results = detailed_notices
-            .and_then(|notice| async {
-                if delay.as_millis() > 0 {
-                    tokio::time::sleep(delay).await;
+        let mut detailed = Vec::new();
+        let mut detail_stream = detailed_notices;
+        while let Some(result) = detail_stream.next().await {
+            match result {
+                Ok(notice) => detailed.push(notice),
+                Err(error) => {
+                    outcome.detail_failures += 1;
+                    log::warn(&format!("Failed to fetch notice detail: {}", error));
                 }
-                Ok(notice)
-            })
-            .try_collect()
-            .await?;
+            }
 
-        Ok(results)
+            if delay.as_millis() > 0 {
+                tokio::time::sleep(delay).await;
+            }
+        }
+
+        outcome.notices = detailed;
+        Ok(outcome)
     }
 
     /// Fetch a list of notices from a single board.
@@ -131,8 +180,12 @@ impl NoticeCrawler {
     }
 
     /// Fetch the body for a single notice.
-    async fn fetch_notice_detail(&self, mut notice: Notice, campuses: &[Campus]) -> Result<Notice> {
-        let board = self.find_board(&notice, campuses)?;
+    async fn fetch_notice_detail(
+        &self,
+        mut notice: Notice,
+        board_lookup: &HashMap<&str, &Board>,
+    ) -> Result<Notice> {
+        let board = self.find_board(&notice, board_lookup)?;
         if let Some(body_selector_str) = &board.selectors.body_selector {
             if !notice.link.is_empty() {
                 let html = self.client.get(&notice.link).send().await?.text().await?;
@@ -199,14 +252,23 @@ impl NoticeCrawler {
         })
     }
 
-    fn find_board<'a>(&self, notice: &Notice, campuses: &'a [Campus]) -> Result<&'a Board> {
-        // This is inefficient, but necessary for now.
-        // A better approach would be to pass the board context along with the notice.
+    fn build_board_lookup<'a>(campuses: &'a [Campus]) -> HashMap<&'a str, &'a Board> {
         campuses
             .iter()
-            .flat_map(|c| c.all_departments())
+            .flat_map(|campus| campus.all_departments())
             .flat_map(|dept_ref| dept_ref.dept.boards.iter())
-            .find(|b| b.id == notice.board_id)
+            .map(|board| (board.id.as_str(), board))
+            .collect()
+    }
+
+    fn find_board<'a>(
+        &self,
+        notice: &Notice,
+        board_lookup: &'a HashMap<&str, &'a Board>,
+    ) -> Result<&'a Board> {
+        board_lookup
+            .get(notice.board_id.as_str())
+            .copied()
             .ok_or_else(|| AppError::Crawl {
                 context: "find_board".to_string(),
                 message: format!("Board with id {} not found", notice.board_id),
