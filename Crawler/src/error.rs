@@ -1,6 +1,9 @@
+// src/error.rs
+
 //! Unified error handling for the crawler application.
 
 use std::fmt;
+
 use thiserror::Error;
 
 /// Result type alias for crawler operations.
@@ -9,6 +12,10 @@ pub type Result<T> = std::result::Result<T, AppError>;
 /// Unified application error type.
 #[derive(Error, Debug)]
 pub enum AppError {
+    /// AWS S3 error
+    #[error("S3 error: {0}")]
+    S3(String),
+
     /// I/O operation failed
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
@@ -24,6 +31,10 @@ pub enum AppError {
     /// TOML parsing failed
     #[error("TOML parse error: {0}")]
     Toml(#[from] toml::de::Error),
+
+    /// TOML serialization failed
+    #[error("TOML serialize error: {0}")]
+    TomlSerialize(#[from] toml::ser::Error),
 
     /// URL parsing failed
     #[error("URL parse error: {0}")]

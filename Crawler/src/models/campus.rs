@@ -10,6 +10,21 @@ use serde::{Deserialize, Serialize};
 use crate::error::Result;
 use crate::models::CmsSelectors;
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CampusMeta {
+    pub id: String,
+    pub name: String,
+}
+
+impl From<&Campus> for CampusMeta {
+    fn from(campus: &Campus) -> Self {
+        Self {
+            id: campus.campus.clone(), // Assuming the 'campus' field is the ID
+            name: campus.campus.clone(),
+        }
+    }
+}
+
 /// A university campus containing colleges and/or departments.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Campus {

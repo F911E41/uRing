@@ -5,12 +5,12 @@
 use std::fs;
 use std::path::Path;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::error::Result;
 
 /// Root seed data structure containing initial configuration for discovery.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Seed {
     /// List of campuses to crawl
     pub campuses: Vec<CampusInfo>,
@@ -47,7 +47,7 @@ impl Seed {
 }
 
 /// Campus information for initial discovery.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CampusInfo {
     /// Campus name (e.g., "신촌캠퍼스")
     pub name: String,
@@ -57,7 +57,7 @@ pub struct CampusInfo {
 }
 
 /// Mapping from board keyword to standardized ID.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KeywordMapping {
     /// Keyword to search for in link text
     pub keyword: String,
@@ -70,7 +70,7 @@ pub struct KeywordMapping {
 }
 
 /// CMS detection pattern with corresponding selectors.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CmsPattern {
     /// Pattern name for identification
     pub name: String,

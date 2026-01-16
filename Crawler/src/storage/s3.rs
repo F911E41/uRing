@@ -1,26 +1,30 @@
 // src/storage/s3.rs
 
 //! AWS S3 storage implementation.
-//!
-//! Implements the append-only event log + snapshot pointer approach:
-//! - Events are stored at `{bucket}/{campus}/events/YYYY-MM/{notice_id}.json`
-//! - Snapshots are stored at `{bucket}/{campus}/snapshots/{timestamp}.json`
-//! - Pointer is stored at `{bucket}/{campus}/new.pointer.json`
+
+use std::collections::{HashMap, HashSet};
 
 use aws_sdk_s3::Client;
 use aws_sdk_s3::primitives::ByteStream;
 
-use chrono::{Datelike, NaiveDate, Utc};
+use async_trait::async_trait;
+use chrono::Utc;
+use futures::future::join_all;
+use serde::Serialize;
 use serde::de::DeserializeOwned;
 use tracing::{info, warn};
 
 use crate::error::{AppError, Result};
-use crate::models::Notice;
-use crate::storage::{
-    EventStorageSummary, NoticeStorage, SnapshotMetadata, SnapshotPointer, paths,
+use crate::models::{
+    Campus, CampusMeta, CategoryMeta, Config, CrawlStats, Diff, Notice, NoticeCategory,
+    NoticeIndexItem, Seed,
 };
+use crate::storage::{NoticeStorage, SnapshotMetadata, SnapshotPointer};
 
-/// S3-based notice storage implementing the append-only approach.
+use super::paths;
+
+/// S3-based notice storage.
+#[derive(Clone)]
 pub struct S3Storage {
     client: Client,
     bucket: String,
@@ -37,29 +41,20 @@ impl S3Storage {
         }
     }
 
-    /// Create a new storage instance scoped to a campus-specific prefix.
-    pub fn with_campus(&self, campus: &str) -> Self {
-        let campus_prefix = paths::campus_prefix(&self.prefix, campus);
-        Self {
-            client: self.client.clone(),
-            bucket: self.bucket.clone(),
-            prefix: campus_prefix,
-        }
-    }
-
     /// Create S3 storage from environment configuration.
     pub async fn from_env() -> Result<Self> {
         let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
         let client = Client::new(&config);
 
-        let bucket = std::env::var("S3_BUCKET").unwrap_or_else(|_| "uring-notices".to_string());
-        let prefix = std::env::var("S3_PREFIX").unwrap_or_else(|_| "uRing".to_string());
+        let bucket =
+            std::env::var("S3_BUCKET").map_err(|_| AppError::config("S3_BUCKET not set"))?;
+        let prefix = std::env::var("S3_PREFIX").unwrap_or_default();
 
         Ok(Self::new(client, bucket, prefix))
     }
 
-    /// Read JSON from S3, returning None if the key does not exist.
-    pub async fn read_json_optional<T: DeserializeOwned>(&self, key: &str) -> Result<Option<T>> {
+    /// Read raw bytes from S3, returning None if the key does not exist.
+    pub async fn read_bytes_optional(&self, key: &str) -> Result<Option<Vec<u8>>> {
         let result = self
             .client
             .get_object()
@@ -71,44 +66,39 @@ impl S3Storage {
         match result {
             Ok(output) => {
                 let bytes = output.body.collect().await.map_err(|e| {
-                    AppError::Io(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        e.to_string(),
+                    AppError::S3(format!(
+                        "Failed to collect object body for key {}: {}",
+                        key, e
                     ))
                 })?;
-                let value: T = serde_json::from_slice(&bytes.into_bytes())?;
-                Ok(Some(value))
+                Ok(Some(bytes.into_bytes().to_vec()))
             }
             Err(err) => {
-                let service_err = err.into_service_error();
-                if service_err.is_no_such_key() {
-                    info!("No existing data at s3://{}/{}", self.bucket, key);
-                    Ok(None)
-                } else {
-                    Err(AppError::Io(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        service_err.to_string(),
-                    )))
+                if let aws_sdk_s3::error::SdkError::ServiceError(service_err) = &err {
+                    if service_err.err().is_no_such_key() {
+                        info!("No existing data at s3://{}/{}", self.bucket, key);
+                        return Ok(None);
+                    }
                 }
+                Err(AppError::S3(err.to_string()))
             }
         }
     }
 
-    /// Read notices JSON from S3.
-    async fn read_json(&self, key: &str) -> Result<Vec<Notice>> {
-        Ok(self
-            .read_json_optional::<Vec<Notice>>(key)
-            .await?
-            .unwrap_or_default())
+    /// Read JSON from S3, returning None if the key does not exist.
+    pub async fn read_json_optional<T: DeserializeOwned>(&self, key: &str) -> Result<Option<T>> {
+        match self.read_bytes_optional(key).await? {
+            Some(bytes) => {
+                let value: T = serde_json::from_slice(&bytes)?;
+                Ok(Some(value))
+            }
+            None => Ok(None),
+        }
     }
 
-    /// Read pointer JSON from S3.
-    async fn read_pointer(&self, key: &str) -> Result<Option<SnapshotPointer>> {
-        self.read_json_optional::<SnapshotPointer>(key).await
-    }
-
-    /// Write JSON to S3.
-    async fn write_json_bytes(&self, key: &str, bytes: Vec<u8>) -> Result<()> {
+    /// Write a serializable object as JSON to S3.
+    async fn write_json<T: Serialize + ?Sized>(&self, key: &str, value: &T) -> Result<()> {
+        let bytes = serde_json::to_vec(value)?;
         let body = ByteStream::from(bytes);
         self.client
             .put_object()
@@ -118,171 +108,221 @@ impl S3Storage {
             .content_type("application/json")
             .send()
             .await
-            .map_err(|e| {
-                AppError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    e.to_string(),
-                ))
-            })?;
+            .map_err(|e| AppError::S3(e.to_string()))?;
 
         info!("Wrote object to s3://{}/{}", self.bucket, key);
         Ok(())
     }
 
-    /// Write a notice JSON to S3.
-    async fn write_notice(&self, key: &str, notice: &Notice) -> Result<()> {
-        let json = serde_json::to_string_pretty(notice)?;
-        self.write_json_bytes(key, json.into_bytes()).await
-    }
-
-    /// Write a snapshot JSON to S3.
-    async fn write_snapshot_file(&self, key: &str, notices: &[Notice]) -> Result<()> {
-        let json = serde_json::to_string_pretty(notices)?;
-        self.write_json_bytes(key, json.into_bytes()).await
-    }
-
-    /// Check if an object exists in S3.
-    async fn exists(&self, key: &str) -> bool {
+    /// Write raw bytes to S3 with a content type.
+    async fn write_bytes(&self, key: &str, bytes: Vec<u8>, content_type: &str) -> Result<()> {
+        let body = ByteStream::from(bytes);
         self.client
-            .head_object()
+            .put_object()
             .bucket(&self.bucket)
             .key(key)
+            .body(body)
+            .content_type(content_type)
             .send()
             .await
-            .is_ok()
-    }
+            .map_err(|e| AppError::S3(e.to_string()))?;
 
-    /// List all objects with a prefix.
-    async fn list_keys(&self, prefix: &str) -> Result<Vec<String>> {
-        let mut keys = Vec::new();
-        let mut continuation: Option<String> = None;
-
-        loop {
-            let mut request = self
-                .client
-                .list_objects_v2()
-                .bucket(&self.bucket)
-                .prefix(prefix);
-            if let Some(token) = continuation.clone() {
-                request = request.continuation_token(token);
-            }
-
-            let response = request.send().await.map_err(|e| {
-                AppError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    e.to_string(),
-                ))
-            })?;
-
-            if let Some(contents) = response.contents {
-                for item in contents {
-                    if let Some(key) = item.key {
-                        keys.push(key);
-                    }
-                }
-            }
-
-            continuation = response.next_continuation_token;
-            if continuation.is_none() {
-                break;
-            }
-        }
-
-        Ok(keys)
-    }
-
-    fn notice_month(notice: &Notice) -> (i32, u32) {
-        for fmt in ["%Y-%m-%d", "%Y.%m.%d", "%Y/%m/%d"] {
-            if let Ok(date) = NaiveDate::parse_from_str(&notice.date, fmt) {
-                return (date.year(), date.month());
-            }
-        }
-        let now = Utc::now();
-        (now.year(), now.month())
+        info!("Wrote object to s3://{}/{}", self.bucket, key);
+        Ok(())
     }
 }
 
+#[async_trait]
 impl NoticeStorage for S3Storage {
-    /// Store notices in the append-only event log.
-    async fn store_events(&self, notices: &[Notice]) -> Result<EventStorageSummary> {
-        let mut stored = Vec::new();
-        let mut skipped = 0;
+    async fn write_config_bundle(
+        &self,
+        config: &Config,
+        seed: &Seed,
+        site_map: &[Campus],
+    ) -> Result<()> {
+        let config_key = paths::config_key(&self.prefix, "config.toml");
+        let seed_key = paths::config_key(&self.prefix, "seed.toml");
+        let site_map_key = paths::config_key(&self.prefix, "siteMap.json");
 
-        for notice in notices {
-            let (year, month) = Self::notice_month(notice);
-            let notice_id = notice.canonical_id();
-            let key = paths::event_key(&self.prefix, year, month, &notice_id);
+        let config_toml = toml::to_string(config)?;
+        let seed_toml = toml::to_string(seed)?;
 
-            if self.exists(&key).await {
-                skipped += 1;
-                continue;
-            }
+        self.write_bytes(&config_key, config_toml.into_bytes(), "text/plain")
+            .await?;
+        self.write_bytes(&seed_key, seed_toml.into_bytes(), "text/plain")
+            .await?;
+        self.write_json(&site_map_key, site_map).await?;
 
-            self.write_notice(&key, notice).await?;
-            stored.push(notice.clone());
-        }
-
-        Ok(EventStorageSummary {
-            stored_notices: stored,
-            skipped_count: skipped,
-        })
+        Ok(())
     }
 
-    /// Write a snapshot and update pointer.
-    async fn write_snapshot(&self, notices: &[Notice]) -> Result<SnapshotMetadata> {
-        let timestamp = Utc::now();
-        let snapshot_key = paths::snapshot_key(&self.prefix, timestamp);
+    async fn write_snapshot(
+        &self,
+        notices: &[Notice],
+        campuses: &[Campus],
+        stats: &CrawlStats,
+    ) -> Result<SnapshotMetadata> {
+        let start_time = Utc::now();
+        let version = start_time.format("%Y%m%d%H%M%S").to_string();
+        let snapshot_prefix = paths::snapshot_prefix(&self.prefix, &version);
+
+        // 1. Load previous snapshot for diffing
         let pointer_key = paths::pointer_key(&self.prefix);
+        let previous_items: Vec<NoticeIndexItem> = if let Some(pointer) = self
+            .read_json_optional::<SnapshotPointer>(&pointer_key)
+            .await?
+        {
+            let old_snapshot_prefix = paths::snapshot_prefix(&self.prefix, &pointer.version);
+            let old_index_key = paths::index_key(&old_snapshot_prefix, "all.json");
+            self.read_json_optional(&old_index_key)
+                .await?
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+        let previous_items_map: HashMap<String, Option<String>> = previous_items
+            .into_iter()
+            .map(|item| (item.id, item.content_hash))
+            .collect();
 
-        self.write_snapshot_file(&snapshot_key, notices).await?;
+        // 2. Write detail files in parallel
+        let uploads_data: Vec<_> = notices
+            .iter()
+            .map(|notice| {
+                let notice_id = notice.canonical_id();
+                let key = paths::detail_key(&snapshot_prefix, &notice_id);
+                (key, notice)
+            })
+            .collect();
 
-        let pointer = SnapshotPointer::new(snapshot_key.clone());
-        let pointer_json = serde_json::to_string_pretty(&pointer)?;
-        self.write_json_bytes(&pointer_key, pointer_json.into_bytes())
+        let detail_uploads = uploads_data
+            .iter()
+            .map(|(key, notice)| self.write_json(key, *notice));
+
+        join_all(detail_uploads)
+            .await
+            .into_iter()
+            .collect::<Result<Vec<_>>>()?;
+
+        // 3. Create and write index files
+        let index_items: Vec<NoticeIndexItem> = notices.iter().map(NoticeIndexItem::from).collect();
+        let all_index_key = paths::index_key(&snapshot_prefix, "all.json");
+        self.write_json(&all_index_key, &index_items).await?;
+
+        // Per-campus indices
+        let notice_by_id: HashMap<String, &Notice> = notices
+            .iter()
+            .map(|notice| (notice.canonical_id(), notice))
+            .collect();
+        let mut campus_map: HashMap<String, Vec<&NoticeIndexItem>> = HashMap::new();
+        for item in &index_items {
+            if let Some(notice) = notice_by_id.get(&item.id) {
+                campus_map
+                    .entry(notice.campus.clone())
+                    .or_default()
+                    .push(item);
+            }
+        }
+        for (campus_id, items) in &campus_map {
+            let key = paths::campus_index_key(&snapshot_prefix, campus_id);
+            self.write_json(&key, items).await?;
+        }
+
+        // Per-category indices
+        let mut category_map: HashMap<NoticeCategory, Vec<&NoticeIndexItem>> = HashMap::new();
+        for item in &index_items {
+            category_map
+                .entry(item.category.clone())
+                .or_default()
+                .push(item);
+        }
+        for (category, items) in &category_map {
+            let key = paths::category_index_key(&snapshot_prefix, category);
+            self.write_json(&key, items).await?;
+        }
+
+        // 4. Create and write meta files
+        let campus_meta: Vec<CampusMeta> = campuses.iter().map(CampusMeta::from).collect();
+        self.write_json(
+            &paths::meta_key(&snapshot_prefix, "campus.json"),
+            &campus_meta,
+        )
+        .await?;
+        self.write_json(
+            &paths::meta_key(&snapshot_prefix, "category.json"),
+            &CategoryMeta::all(),
+        )
+        .await?;
+        self.write_json(&paths::meta_key(&snapshot_prefix, "source.json"), campuses)
             .await?;
+
+        // 5. Create and write aux files
+        let current_ids: HashSet<String> = index_items.iter().map(|item| item.id.clone()).collect();
+        let current_hashes: HashMap<String, String> = index_items
+            .iter()
+            .filter_map(|item| {
+                item.content_hash
+                    .clone()
+                    .map(|hash| (item.id.clone(), hash))
+            })
+            .collect();
+        let mut added = Vec::new();
+        let mut updated = Vec::new();
+
+        for id in &current_ids {
+            match previous_items_map.get(id) {
+                None => added.push(id.clone()),
+                Some(Some(prev_hash)) => {
+                    if let Some(current_hash) = current_hashes.get(id) {
+                        if current_hash != prev_hash {
+                            updated.push(id.clone());
+                        }
+                    }
+                }
+                Some(None) => {}
+            }
+        }
+
+        added.sort();
+        updated.sort();
+        let diff = Diff { added, updated };
+        self.write_json(&paths::aux_key(&snapshot_prefix, "diff.json"), &diff)
+            .await?;
+        self.write_json(&paths::aux_key(&snapshot_prefix, "stats.json"), stats)
+            .await?;
+
+        // 6. Atomically update pointer
+        let pointer = SnapshotPointer::new(version.clone());
+        self.write_json(&pointer_key, &pointer).await?;
 
         Ok(SnapshotMetadata {
             notice_count: notices.len(),
-            timestamp,
-            snapshot_location: format!("s3://{}/{}", self.bucket, snapshot_key),
+            timestamp: start_time,
+            snapshot_location: format!("s3://{}/{}", self.bucket, snapshot_prefix),
             pointer_location: format!("s3://{}/{}", self.bucket, pointer_key),
         })
     }
 
-    /// Load notices from the latest snapshot pointer.
-    async fn load_snapshot(&self) -> Result<Vec<Notice>> {
+    async fn load_snapshot(&self) -> Result<Vec<NoticeIndexItem>> {
         let pointer_key = paths::pointer_key(&self.prefix);
-        let pointer = match self.read_pointer(&pointer_key).await? {
-            Some(pointer) => pointer,
-            None => return Ok(Vec::new()),
+        let pointer = match self
+            .read_json_optional::<SnapshotPointer>(&pointer_key)
+            .await?
+        {
+            Some(p) => p,
+            None => {
+                warn!("latest.json pointer not found.");
+                return Ok(Vec::new());
+            }
         };
 
-        self.read_json(&pointer.snapshot_key).await
-    }
-
-    /// Load notices from events for a specific month.
-    async fn load_events(&self, year: i32, month: u32) -> Result<Vec<Notice>> {
-        let prefix = paths::events_prefix(&self.prefix, year, month);
-        let keys = self.list_keys(&prefix).await?;
-        if keys.is_empty() {
-            return Ok(Vec::new());
-        }
-
-        let mut notices = Vec::new();
-        for key in keys {
-            if !key.ends_with(".json") {
-                continue;
-            }
-            let content = self.read_json_optional::<Notice>(&key).await?;
-            if let Some(notice) = content {
-                notices.push(notice);
-            }
-        }
-
-        if notices.is_empty() {
-            warn!("No notices found under prefix {}", prefix);
-        }
-
-        Ok(notices)
+        let index_key = paths::index_key(
+            &paths::snapshot_prefix(&self.prefix, &pointer.version),
+            "all.json",
+        );
+        Ok(self
+            .read_json_optional(&index_key)
+            .await?
+            .unwrap_or_default())
     }
 }

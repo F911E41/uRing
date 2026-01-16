@@ -1,38 +1,35 @@
 // src/pipeline/pipeline.rs
 
-use std::path::PathBuf;
-
-use crate::error::Result;
-use crate::models::{Config, LocaleConfig};
-use crate::utils::log;
-
 use super::crawl::run_crawler;
 use super::map::run_mapper;
+
+use crate::error::Result;
+use crate::models::{Config, LocaleConfig, Seed};
+use crate::storage::NoticeStorage;
+use crate::utils::{http, log};
 
 /// Run the full pipeline.
 pub async fn run_pipeline(
     config: &Config,
     locale: &LocaleConfig,
-    base_path: &PathBuf,
-    skip_map: bool,
+    seed: &Seed,
+    storage: &dyn NoticeStorage,
 ) -> Result<()> {
     log::header(&locale.messages.pipeline_starting);
 
-    let total_steps = if skip_map { 1 } else { 2 };
-    let mut current_step = 1;
+    let client = http::create_async_client(&config.crawler)?;
 
-    if !skip_map {
-        log::step(
-            current_step,
-            total_steps,
-            "Map - Discovering departments and boards",
-        );
-        run_mapper(config, locale, base_path).await?;
-        current_step += 1;
-    }
+    // Step 1: Discover departments and boards
+    log::step(1, 3, "Map - Discovering departments and boards");
+    let campuses = run_mapper(config, locale, seed, &client).await?;
 
-    log::step(current_step, total_steps, "Crawl - Fetching notices");
-    run_crawler(config, locale, base_path).await?;
+    // Step 2: Persist config and site map for this run
+    log::step(2, 3, "Config - Persisting config and site map");
+    storage.write_config_bundle(config, seed, &campuses).await?;
+
+    // Step 3: Crawl notices from the discovered boards
+    log::step(3, 3, "Crawl - Fetching notices");
+    run_crawler(config, locale, storage, &campuses).await?;
 
     log::success(&locale.messages.pipeline_complete);
 

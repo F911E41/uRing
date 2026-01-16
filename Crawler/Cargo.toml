@@ -6,6 +6,10 @@ description = "Crawls Yonsei University website to discover announcement boards"
 # Set Rust edition to 2024 edition
 edition = "2024"
 
+[lib]
+name = "crawler"
+path = "src/lib.rs"
+
 [[bin]]
 name = "crawler"
 path = "src/main.rs"
@@ -13,10 +17,12 @@ path = "src/main.rs"
 [[bin]]
 name = "crawler-lambda"
 path = "src/lambda.rs"
+required-features = ["lambda"]
 
 [features]
-default = []
-lambda = ["lambda_runtime", "aws-config", "aws-sdk-s3"]
+default = ["s3"]
+s3 = ["aws-config", "aws-sdk-s3"]
+lambda = ["lambda_runtime", "s3"]
 
 [dependencies]
 # Asynchronous runtime
@@ -46,6 +52,9 @@ toml = "^0.8"
 
 # Asynchronous utilities
 futures = "^0.3"
+
+# Async traits
+async-trait = "0.1"
 
 # Error handling
 thiserror = "^2.0"

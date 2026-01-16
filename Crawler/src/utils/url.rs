@@ -70,6 +70,67 @@ pub fn get_domain(url: &str) -> Option<String> {
     Some(domain.to_lowercase())
 }
 
+/// Extract a stable notice identifier from a URL.
+pub fn extract_notice_id(url: &str) -> Option<String> {
+    let parsed = url::Url::parse(url).ok()?;
+    let mut fallback_keyed: Option<String> = None;
+    let mut fallback_numeric: Option<String> = None;
+
+    for (key, value) in parsed.query_pairs() {
+        if value.is_empty() {
+            continue;
+        }
+
+        let key_lower = key.to_lowercase();
+        let value_string = value.to_string();
+
+        if matches!(
+            key_lower.as_str(),
+            "articleno"
+                | "article_no"
+                | "articleid"
+                | "article_id"
+                | "board_seq"
+                | "notice_id"
+                | "noticeid"
+                | "seq"
+                | "no"
+                | "id"
+        ) {
+            return Some(value_string);
+        }
+
+        if fallback_keyed.is_none()
+            && (key_lower.contains("id")
+                || key_lower.contains("no")
+                || key_lower.contains("seq")
+                || key_lower.contains("article"))
+        {
+            fallback_keyed = Some(value_string.clone());
+        }
+
+        if fallback_numeric.is_none() && value_string.chars().all(|c| c.is_ascii_digit()) {
+            fallback_numeric = Some(value_string);
+        }
+    }
+
+    if let Some(value) = fallback_keyed {
+        return Some(value);
+    }
+    if let Some(value) = fallback_numeric {
+        return Some(value);
+    }
+
+    if let Some(last) = parsed.path_segments().and_then(|segments| segments.last()) {
+        let digits: String = last.chars().filter(|c| c.is_ascii_digit()).collect();
+        if !digits.is_empty() {
+            return Some(digits);
+        }
+    }
+
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -113,5 +174,23 @@ mod tests {
             Some("example.com".to_string())
         );
         assert_eq!(get_domain("invalid-url"), None);
+    }
+
+    #[test]
+    fn test_extract_notice_id_query_key() {
+        let url = "https://example.com/view?articleNo=1234&mode=view";
+        assert_eq!(extract_notice_id(url), Some("1234".to_string()));
+    }
+
+    #[test]
+    fn test_extract_notice_id_query_fallback() {
+        let url = "https://example.com/view?seq=888";
+        assert_eq!(extract_notice_id(url), Some("888".to_string()));
+    }
+
+    #[test]
+    fn test_extract_notice_id_path_digits() {
+        let url = "https://example.com/notice/9999";
+        assert_eq!(extract_notice_id(url), Some("9999".to_string()));
     }
 }

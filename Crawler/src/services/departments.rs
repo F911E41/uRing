@@ -4,13 +4,14 @@
 //!
 //! Crawls campus pages to discover departments and their homepage URLs.
 
+use futures::stream::{self, StreamExt, TryStreamExt};
 use regex::Regex;
-use reqwest::blocking::Client;
+use reqwest::Client;
 use scraper::{ElementRef, Html, Selector};
 
 use crate::error::Result;
 use crate::models::{Campus, CampusInfo, College, Department};
-use crate::utils::{http::fetch_page, log};
+use crate::utils::{http::fetch_page_async, log};
 
 /// Service for crawling campus department information.
 pub struct DepartmentCrawler<'a> {
@@ -24,30 +25,18 @@ impl<'a> DepartmentCrawler<'a> {
     }
 
     /// Crawl all campuses and return their departments.
-    pub fn crawl_all(&self, campuses: &[CampusInfo]) -> Result<Vec<Campus>> {
-        campuses
-            .iter()
-            .filter_map(|info| {
-                log::info(&format!("Crawling {}...", info.name));
-                match self.crawl_campus(info) {
-                    Ok(campus) => {
-                        let count = campus.department_count();
-                        log::info(&format!("  Found {count} departments"));
-                        Some(campus)
-                    }
-                    Err(e) => {
-                        log::error(&format!("  Failed to crawl {}: {e}", info.name));
-                        None
-                    }
-                }
-            })
-            .collect::<Vec<_>>()
-            .pipe(Ok)
+    pub async fn crawl_all(&self, campuses: &[CampusInfo]) -> Result<Vec<Campus>> {
+        stream::iter(campuses)
+            .map(|info| self.crawl_campus(info))
+            .buffer_unordered(5) // Concurrently crawl up to 5 campuses
+            .try_collect()
+            .await
     }
 
     /// Crawl a single campus.
-    fn crawl_campus(&self, info: &CampusInfo) -> Result<Campus> {
-        let document = fetch_page(self.client, &info.url)?;
+    async fn crawl_campus(&self, info: &CampusInfo) -> Result<Campus> {
+        log::info(&format!("Crawling {}...", info.name));
+        let document = fetch_page_async(self.client, &info.url).await?;
 
         let mut campus = Campus {
             campus: info.name.clone(),
@@ -60,13 +49,15 @@ impl<'a> DepartmentCrawler<'a> {
                 "  Cannot find main content area for {}",
                 info.name
             ));
-
             return Ok(campus);
         };
 
         // Extract departments and group by college
         let dept_info = self.extract_departments_from_main(main_elem, &document);
         self.group_into_colleges(&mut campus, dept_info);
+
+        let count = campus.department_count();
+        log::info(&format!("  Found {count} departments in {}", info.name));
 
         Ok(campus)
     }
@@ -124,15 +115,10 @@ impl<'a> DepartmentCrawler<'a> {
             return Vec::new();
         };
 
-        let college_pattern = Regex::new(r"([가-힣]+대학)$").unwrap_or_else(|_| {
-            // Fallback pattern that won't match anything
-            Regex::new(r"^$").unwrap()
-        });
-
+        let college_pattern = Regex::new(r"([가-힣]+대학)$").unwrap();
         let mut results: Vec<(String, String, String)> = Vec::new();
         let mut current_college = String::new();
 
-        // Get all homepage URLs
         let homepage_urls = self.extract_all_homepage_urls(document);
         let mut url_iter = homepage_urls.into_iter().peekable();
 
@@ -155,20 +141,16 @@ impl<'a> DepartmentCrawler<'a> {
                 results.push((current_college.clone(), text, dept_url));
             }
         }
-
         results
     }
 
     fn clean_header_text(&self, header: ElementRef) -> String {
         let mut text: String = header.text().collect();
-
-        // Remove common suffixes
         for suffix in &["교수진", "홈페이지"] {
             if let Some(idx) = text.find(suffix) {
                 text = text[..idx].to_string();
             }
         }
-
         text.trim().to_string()
     }
 
@@ -186,17 +168,14 @@ impl<'a> DepartmentCrawler<'a> {
                 if !text.contains("홈페이지") {
                     return None;
                 }
-
                 let href = element.value().attr("href")?;
                 if !href.starts_with("http") || href.starts_with('#') {
                     return None;
                 }
-
                 let pos = html.find(href)?;
                 Some((pos, href.to_string()))
             })
             .collect();
-
         urls.sort_by_key(|(pos, _)| *pos);
         urls
     }
@@ -212,19 +191,6 @@ impl<'a> DepartmentCrawler<'a> {
                 }
             }
         }
-
         format!("yonsei_{}", name.to_lowercase().replace(' ', "_"))
     }
 }
-
-/// Extension trait for pipe operations.
-trait Pipe: Sized {
-    fn pipe<F, R>(self, f: F) -> R
-    where
-        F: FnOnce(Self) -> R,
-    {
-        f(self)
-    }
-}
-
-impl<T> Pipe for T {}

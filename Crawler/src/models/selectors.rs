@@ -1,6 +1,6 @@
 // src/models/selectors.rs
 
-//! CSS selectors for scraping board pages.
+//! CSS selectors for scraping a notice board.
 
 use serde::{Deserialize, Serialize};
 
@@ -15,6 +15,14 @@ pub struct CmsSelectors {
 
     /// Selector for the date element within a row
     pub date_selector: String,
+
+    /// Selector for the author element within a row
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub author_selector: Option<String>,
+
+    /// Selector for the notice body content on the detail page
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub body_selector: Option<String>,
 
     /// HTML attribute name for extracting links (usually "href")
     #[serde(default = "default_attr_name")]
@@ -35,6 +43,8 @@ impl Default for CmsSelectors {
             row_selector: "tr".to_string(),
             title_selector: "a".to_string(),
             date_selector: "td:last-child".to_string(),
+            author_selector: None,
+            body_selector: None,
             attr_name: default_attr_name(),
             link_selector: None,
         }
@@ -53,6 +63,8 @@ impl CmsSelectors {
             row_selector: row.into(),
             title_selector: title.into(),
             date_selector: date.into(),
+            author_selector: None,
+            body_selector: None,
             attr_name: attr.into(),
             link_selector: None,
         }
@@ -65,6 +77,8 @@ impl CmsSelectors {
             row_selector: "table tr:has(a)".to_string(),
             title_selector: "a".to_string(),
             date_selector: "td:last-child".to_string(),
+            author_selector: None,
+            body_selector: None,
             attr_name: "href".to_string(),
             link_selector: None,
         }

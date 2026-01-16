@@ -5,13 +5,13 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::error::Result;
 use crate::utils::log;
 
 /// Root application configuration.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     /// HTTP and crawling behavior settings
     #[serde(default)]
@@ -99,7 +99,7 @@ impl Default for Config {
 }
 
 /// HTTP client and crawling behavior settings.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CrawlerConfig {
     /// User-Agent header for HTTP requests
     #[serde(default = "defaults::user_agent")]
@@ -135,7 +135,7 @@ impl Default for CrawlerConfig {
 }
 
 /// File path configurations.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PathsConfig {
     /// Path to seed file (relative to project root)
     #[serde(default = "defaults::seed_file")]
@@ -176,7 +176,7 @@ impl Default for PathsConfig {
 }
 
 /// Board discovery settings.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiscoveryConfig {
     /// Maximum length for board name (longer text is likely a notice title)
     #[serde(default = "defaults::max_board_name_length")]
@@ -197,7 +197,7 @@ impl Default for DiscoveryConfig {
 }
 
 /// Text cleaning/preprocessing settings.
-#[derive(Debug, Clone, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CleaningConfig {
     /// Patterns to remove from titles
     #[serde(default)]
@@ -244,45 +244,30 @@ impl CleaningConfig {
 }
 
 /// A text replacement rule.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Replacement {
     pub from: String,
     pub to: String,
 }
 
 /// Output format settings.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OutputConfig {
     /// Enable console output
     #[serde(default)]
     pub console_enabled: bool,
-
-    /// Enable JSON file output
-    #[serde(default = "defaults::json_enabled")]
-    pub json_enabled: bool,
-
-    /// Pretty-print JSON output
-    #[serde(default = "defaults::json_pretty")]
-    pub json_pretty: bool,
-
-    /// Template for notice display
-    #[serde(default = "defaults::notice_format")]
-    pub notice_format: String,
 }
 
 impl Default for OutputConfig {
     fn default() -> Self {
         Self {
             console_enabled: false,
-            json_enabled: defaults::json_enabled(),
-            json_pretty: defaults::json_pretty(),
-            notice_format: defaults::notice_format(),
         }
     }
 }
 
 /// Logging settings.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoggingConfig {
     /// Log level (debug, info, warn, error)
     #[serde(default = "defaults::log_level")]
@@ -303,7 +288,7 @@ impl Default for LoggingConfig {
 }
 
 /// Internationalization/localization settings.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocaleConfig {
     /// UI messages
     pub messages: Messages,
@@ -342,7 +327,7 @@ impl Default for LocaleConfig {
 }
 
 /// UI message strings.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[allow(dead_code)]
 pub struct Messages {
     // Startup messages
@@ -553,7 +538,7 @@ impl Default for Messages {
 }
 
 /// Error message strings.
-#[derive(Debug, Clone, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[allow(dead_code)]
 pub struct Errors {
     #[serde(default = "defaults::err_config_load")]
@@ -631,15 +616,6 @@ mod defaults {
     }
 
     // Output defaults
-    pub fn json_enabled() -> bool {
-        true
-    }
-    pub fn json_pretty() -> bool {
-        true
-    }
-    pub fn notice_format() -> String {
-        "📌 [{dept_name}:{board_name}] {title}\n   📅 {date}\n   🔗 {link}".into()
-    }
 
     // Logging defaults
     pub fn log_level() -> String {
