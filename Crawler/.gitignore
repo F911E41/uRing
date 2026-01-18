@@ -1,4 +1,4 @@
-# .gitignore for `Crawler` project
+# .gitignore for Crawler
 
 # Ignore build artifacts
 Cargo.lock
