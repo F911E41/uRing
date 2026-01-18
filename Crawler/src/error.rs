@@ -59,6 +59,30 @@ pub enum AppError {
     /// Crawling error
     #[error("Crawl error for {context}: {message}")]
     Crawl { context: String, message: String },
+
+    /// LocalStorage error
+    #[error("Local storage error: {0}")]
+    LocalStorage(String),
+
+    /// Upstream returned non-success HTTP status
+    #[error("Upstream HTTP {status} for {url}")]
+    UpstreamHttp { url: String, status: u16 },
+
+    /// Upstream returned 304 Not Modified
+    #[error("Upstream not modified for {url}")]
+    UpstreamNotModified { url: String },
+
+    /// Upstream returned unexpected content-type
+    #[error("Upstream unexpected content-type for {url}: {content_type}")]
+    UpstreamUnexpectedContentType { url: String, content_type: String },
+
+    /// Upstream body too large
+    #[error("Upstream body too large for {url}: {bytes} > {max_bytes}")]
+    UpstreamBodyTooLarge {
+        url: String,
+        bytes: u64,
+        max_bytes: u64,
+    },
 }
 
 impl AppError {
@@ -90,6 +114,18 @@ impl AppError {
         Self::Crawl {
             context: context.into(),
             message: message.to_string(),
+        }
+    }
+
+    /// Check retriable error based on HTTP status code.
+    pub fn is_retryable(&self) -> bool {
+        match self {
+            AppError::Http(e) => e.is_timeout() || e.is_connect() || e.is_request(),
+            AppError::UpstreamHttp { status, .. } => {
+                // 5xx, 429 are retryable
+                (500..600).contains(status) || *status == 429
+            }
+            _ => false,
         }
     }
 }

@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::error::Result;
+use crate::error::{AppError, Result};
 use crate::utils::log;
 
 /// Root application configuration.
@@ -54,6 +54,44 @@ impl Config {
             ));
             Self::default()
         })
+    }
+
+    /// Validate configuration values for basic sanity.
+    pub fn validate(&self) -> Result<()> {
+        if self.crawler.user_agent.trim().is_empty() {
+            return Err(AppError::validation("crawler.user_agent is empty"));
+        }
+        if self.crawler.timeout_secs == 0 {
+            return Err(AppError::validation("crawler.timeout_secs must be > 0"));
+        }
+        if self.crawler.sitemap_timeout_secs == 0 {
+            return Err(AppError::validation(
+                "crawler.sitemap_timeout_secs must be > 0",
+            ));
+        }
+        if self.crawler.max_concurrent == 0 {
+            return Err(AppError::validation("crawler.max_concurrent must be > 0"));
+        }
+        if self.paths.output_dir.trim().is_empty() {
+            return Err(AppError::validation("paths.output_dir is empty"));
+        }
+        if self.paths.departments_file.trim().is_empty() {
+            return Err(AppError::validation("paths.departments_file is empty"));
+        }
+        if self.paths.departments_boards_file.trim().is_empty() {
+            return Err(AppError::validation(
+                "paths.departments_boards_file is empty",
+            ));
+        }
+        if self.paths.manual_review_file.trim().is_empty() {
+            return Err(AppError::validation("paths.manual_review_file is empty"));
+        }
+        if self.discovery.max_board_name_length == 0 {
+            return Err(AppError::validation(
+                "discovery.max_board_name_length must be > 0",
+            ));
+        }
+        Ok(())
     }
 
     // Path helper methods
@@ -857,5 +895,29 @@ mod defaults {
     }
     pub fn err_parse_error() -> String {
         "Parse error: {error}".into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validate_default_config_ok() {
+        assert!(Config::default().validate().is_ok());
+    }
+
+    #[test]
+    fn validate_rejects_empty_user_agent() {
+        let mut config = Config::default();
+        config.crawler.user_agent = "  ".to_string();
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn validate_rejects_zero_concurrency() {
+        let mut config = Config::default();
+        config.crawler.max_concurrent = 0;
+        assert!(config.validate().is_err());
     }
 }

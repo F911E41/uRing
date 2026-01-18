@@ -13,6 +13,7 @@ path = "src/lib.rs"
 [[bin]]
 name = "crawler"
 path = "src/main.rs"
+required-features = ["cli"]
 
 [[bin]]
 name = "crawler-lambda"
@@ -20,22 +21,41 @@ path = "src/lambda.rs"
 required-features = ["lambda"]
 
 [features]
-default = ["s3"]
-s3 = ["aws-config", "aws-sdk-s3"]
-lambda = ["lambda_runtime", "s3"]
+# Log is enabled by default
+default = ["log"]
+cli = ["dep:clap", "log"]
+log = ["dep:tracing", "dep:tracing-subscriber"]
+
+# For AWS S3 and Lambda deployment
+s3 = ["dep:aws-config", "dep:aws-sdk-s3"]
+lambda = ["dep:lambda_runtime", "s3", "log"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = "symbols"
+panic = "abort"
 
 [dependencies]
 # Asynchronous runtime
-tokio = { version = "^1", features = ["rt-multi-thread", "macros", "time"] }
+tokio = { version = "^1", features = [
+    "rt-multi-thread",
+    "macros",
+    "time",
+    "fs",
+    "io-util",
+] }
 
 # Http Client
 reqwest = { version = "^0.12", default-features = false, features = [
     "rustls-tls",
-    "blocking",
+    "gzip",
+    "brotli",
+    "deflate",
 ] }
 
 # Command line argument parsing
-clap = { version = "^4", features = ["derive"] }
+clap = { version = "^4", features = ["derive"], optional = true }
 
 # For serialization and deserialization
 serde = { version = "^1.0", features = ["derive"] }
@@ -60,7 +80,7 @@ async-trait = "0.1"
 thiserror = "^2.0"
 
 # Regular expressions
-regex = "^1.1"
+regex = "^1"
 
 # Hashing utilities
 sha2 = "^0.10"
@@ -75,8 +95,11 @@ aws-config = { version = "^1.6", optional = true }
 aws-sdk-s3 = { version = "^1.91", optional = true }
 
 # Tracing for Lambda
-tracing = "^0.1"
-tracing-subscriber = { version = "^0.3", features = ["env-filter", "json"] }
+tracing = { version = "^0.1", optional = true }
+tracing-subscriber = { version = "^0.3", optional = true, features = [
+    "env-filter",
+    "json",
+] }
 
 [dev-dependencies]
 tempfile = "^3.24"

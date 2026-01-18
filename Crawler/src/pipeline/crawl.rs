@@ -5,6 +5,7 @@
 use std::sync::Arc;
 
 use chrono::Utc;
+use reqwest::Client;
 
 use crate::error::Result;
 use crate::models::{Campus, Config, CrawlStats, LocaleConfig};
@@ -14,10 +15,11 @@ use crate::utils::log;
 
 /// Run the notice crawler.
 pub async fn run_crawler(
-    config: &Config,
+    config: Arc<Config>,
     locale: &LocaleConfig,
     storage: &dyn NoticeStorage,
     campuses: &[Campus],
+    client: &Client,
 ) -> Result<()> {
     let start_time = Utc::now();
     log::header(&locale.messages.crawler_starting);
@@ -35,26 +37,40 @@ pub async fn run_crawler(
 
     log::info(&locale.messages.crawler_fetching);
 
-    let crawler = NoticeCrawler::new(Arc::new(config.clone()));
-    let outcome = crawler.fetch_all(campuses).await?;
-    let notices = outcome.notices;
+    // Initialize the crawler with Config and Client
+    let crawler = NoticeCrawler::new(Arc::clone(&config), client.clone())?;
 
+    // Run the crawler to fetch all notices
+    let outcome = crawler.fetch_all(campuses).await?;
     let end_time = Utc::now();
-    let success_rate = if outcome.detail_total == 0 {
-        0.0
-    } else {
-        (outcome.detail_total - outcome.detail_failures) as f32 / outcome.detail_total as f32
+
+    // Calculate success rates
+    let calc_rate = |total: usize, fail: usize| -> f32 {
+        if total == 0 {
+            0.0
+        } else {
+            (total - fail) as f32 / total as f32
+        }
     };
+
     let stats = CrawlStats {
         start_time,
         end_time,
-        notice_count: notices.len(),
+        notice_count: outcome.notices.len(),
         department_count: total_depts,
         board_count: total_boards,
-        success_rate,
+        board_total: outcome.board_total,
+        board_failures: outcome.board_failures,
+        board_success_rate: calc_rate(outcome.board_total, outcome.board_failures),
+        notice_total: outcome.notice_total,
+        notice_failures: outcome.notice_failures,
+        notice_success_rate: calc_rate(outcome.notice_total, outcome.notice_failures),
+        detail_total: outcome.detail_total,
+        detail_failures: outcome.detail_failures,
+        detail_success_rate: calc_rate(outcome.detail_total, outcome.detail_failures),
     };
 
-    let summary = storage.write_snapshot(&notices, campuses, &stats).await?;
+    let summary = storage.write_snapshot(&outcome, campuses, &stats).await?;
 
     log::success(
         &locale
@@ -71,10 +87,10 @@ pub async fn run_crawler(
 
     log::success(&locale.messages.crawler_complete);
 
-    if outcome.board_failures > 0 || outcome.detail_failures > 0 {
+    if outcome.board_failures > 0 || outcome.notice_failures > 0 || outcome.detail_failures > 0 {
         log::warn(&format!(
-            "Crawl completed with {} board failures and {} notice failures",
-            outcome.board_failures, outcome.detail_failures
+            "Crawl completed with issues: {} board fails, {} notice fails, {} detail fails",
+            outcome.board_failures, outcome.notice_failures, outcome.detail_failures
         ));
     }
 

@@ -52,9 +52,10 @@ async fn run_lambda_pipeline() -> Result<()> {
     let config = config_loader.load_config().await?;
     let locale = config_loader.load_locale().await?;
     let seed = config_loader.load_seed().await?;
+    let client = crawler::http::create_async_client(&config.crawler)?;
 
     // Run the main pipeline
-    run_pipeline(&config, &locale, &seed, &storage).await?;
+    run_pipeline(config, &locale, &seed, &storage, &client).await?;
 
     Ok(())
 }

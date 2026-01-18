@@ -1,45 +1,44 @@
 // src/config.rs
 
 //! Configuration loading utilities.
-//!
-//! This module provides convenience functions for loading configuration
-//! and seed data from files.
 
 use std::path::Path;
 
 use serde::de::DeserializeOwned;
 use tracing::info;
 
-use crate::storage::s3::S3Storage;
-
 use crate::error::{AppError, Result};
 use crate::models::{Config, LocaleConfig, Seed};
+use crate::storage::{ByteReader, paths};
 use crate::utils::{fs::load_toml, log};
 
-/// Config loader for Lambda environment.
-pub struct LambdaConfigLoader {
-    storage: S3Storage,
+/// Generic config loader backed by a ByteReader (S3, Local, etc.).
+pub struct RemoteConfigLoader<R: ByteReader> {
+    reader: R,
     prefix: String,
 }
 
-impl LambdaConfigLoader {
-    pub fn new(storage: S3Storage, config_prefix: &str) -> Self {
+impl<R: ByteReader> RemoteConfigLoader<R> {
+    pub fn new(reader: R, prefix: impl Into<String>) -> Self {
         Self {
-            storage,
-            prefix: config_prefix.to_string(),
+            reader,
+            prefix: prefix.into(),
         }
     }
 
     async fn load_toml<T: DeserializeOwned>(&self, file_name: &str) -> Result<T> {
-        let key = format!("{}/{}", self.prefix, file_name);
-        info!("Loading config file from S3: {}", key);
-        let maybe_bytes: Option<Vec<u8>> = self.storage.read_bytes_optional(&key).await?;
-        let bytes: Vec<u8> = maybe_bytes
-            .ok_or_else(|| AppError::Config(format!("Config file not found in S3: {}", key)))?;
+        let key = paths::config_key(&self.prefix, file_name);
+        info!("Loading config file from storage: {}", key);
+
+        let maybe_bytes = self.reader.read_bytes_optional(&key).await?;
+        let bytes = maybe_bytes.ok_or_else(|| {
+            AppError::config(format!("Config file not found in storage: {}", key))
+        })?;
 
         let s = String::from_utf8(bytes).map_err(|e| {
-            AppError::Config(format!("Config file {} is not valid UTF-8: {}", key, e))
+            AppError::config(format!("Config file {} is not valid UTF-8: {}", key, e))
         })?;
+
         toml::from_str(&s).map_err(AppError::from)
     }
 
@@ -56,9 +55,10 @@ impl LambdaConfigLoader {
     }
 }
 
-/// Load configuration from a TOML file.
-///
-/// Falls back to defaults if loading fails.
+#[cfg(feature = "s3")]
+pub type LambdaConfigLoader = RemoteConfigLoader<crate::storage::s3::S3Storage>;
+
+/// Load configuration from a TOML file (local).
 pub fn load_config(path: &Path) -> Result<Config> {
     load_toml(path).or_else(|e| {
         log::warn(&format!(
@@ -69,9 +69,7 @@ pub fn load_config(path: &Path) -> Result<Config> {
     })
 }
 
-/// Load seed data from a TOML file.
-///
-/// Falls back to defaults if loading fails.
+/// Load seed data from a TOML file (local).
 pub fn load_seed(path: &Path) -> Result<Seed> {
     load_toml(path).or_else(|e| {
         log::warn(&format!("Warning: Failed to load seed from {path:?}: {e}"));
@@ -80,7 +78,7 @@ pub fn load_seed(path: &Path) -> Result<Seed> {
     })
 }
 
-/// Load and validate both config and seed data.
+/// Load and validate both config and seed data (local).
 pub fn load_all(base_path: &Path) -> Result<(Config, Seed)> {
     let config_path = base_path.join("data/config.toml");
     let config = load_config(&config_path)?;
@@ -88,7 +86,6 @@ pub fn load_all(base_path: &Path) -> Result<(Config, Seed)> {
     let seed_path = config.seed_path(base_path);
     let seed = load_seed(&seed_path)?;
 
-    // Validate seed data
     seed.validate()
         .map_err(|e| AppError::config(format!("Invalid seed data: {e}")))?;
 
