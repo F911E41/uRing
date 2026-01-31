@@ -1,0 +1,188 @@
+# Crawler Configuration
+
+[crawler]
+# User agent string for HTTP requests
+user_agent = "Mozilla/5.0 (compatible; uRing Crawler/0.1)"
+
+# Request timeout in seconds
+timeout_secs = 30
+
+# Delay between requests in milliseconds (to be polite to servers)
+request_delay_ms = 100
+
+# Timeout for sitemap/secondary requests
+sitemap_timeout_secs = 5
+
+# Maximum concurrent requests (0 = sequential)
+max_concurrent = 5
+
+[paths]
+# Path to site map configuration
+site_map = "data/siteMap.json"
+
+# Path to output directory (will create department subdirectories with board JSON files)
+output = "data/output"
+
+# Seed configuration file (campuses and keywords)
+seed = "data/seed.toml"
+
+# Output directory
+output_dir = "data/output"
+
+# Output file names
+manual_review_file = "Temp/manual_review_needed.json"
+departments_file = "Temp/yonsei_departments.json"
+departments_boards_file = "siteMap.json"
+
+[cleaning]
+# Patterns to remove from titles
+title_remove_patterns = ["첨부파일", "공지"]
+
+# Patterns to remove from dates
+date_remove_patterns = ["작성일"]
+
+# Date replacement patterns (from -> to)
+[[cleaning.date_replacements]]
+from = ". "
+to = "."
+
+[output]
+# Enable console output
+console_enabled = false
+
+# Enable JSON file output
+json_enabled = true
+
+# Pretty print JSON output
+json_pretty = true
+
+# Console output format for notices
+# Available placeholders: {dept_name}, {board_name}, {title}, {date}, {link}
+notice_format = "📌 [{dept_name}:{board_name}] {title}\n   📅 {date}\n   🔗 {link}"
+
+[logging]
+# Log level: error, warn, info, debug, trace
+level = "info"
+
+# Show progress indicators
+show_progress = true
+
+[discovery]
+# Maximum text length for board link names (longer = likely article title)
+max_board_name_length = 20
+
+# Patterns that indicate an article view (not a board listing)
+blacklist_patterns = [
+    "articleNo",
+    "article_no",
+    "mode=view",
+    "seq",
+    "view.do",
+    "board_seq",
+]
+
+# Mapper Seed Data - Campuses and Keywords
+
+# Campus definitions
+[[campuses]]
+name = "신촌캠퍼스"
+url = "https://www.yonsei.ac.kr/sc/186/subview.do"
+
+[[campuses]]
+name = "미래캠퍼스"
+url = "https://mirae.yonsei.ac.kr/wj/1413/subview.do"
+
+# Board keyword mappings
+# When these keywords are found in link text, the link is identified as a board
+
+[[keywords]]
+keyword = "학부공지"
+id = "academic"
+display_name = "학사공지"
+
+[[keywords]]
+keyword = "학사공지"
+id = "academic"
+display_name = "학사공지"
+
+[[keywords]]
+keyword = "대학원공지"
+id = "grad_notice"
+display_name = "대학원공지"
+
+[[keywords]]
+keyword = "장학"
+id = "scholarship"
+display_name = "장학공지"
+
+[[keywords]]
+keyword = "취업"
+id = "career"
+display_name = "취업/진로"
+
+[[keywords]]
+keyword = "공지사항"
+id = "notice"
+display_name = "일반공지"
+
+[[keywords]]
+keyword = "공지"
+id = "notice"
+display_name = "일반공지"
+
+[[keywords]]
+keyword = "진로"
+id = "career"
+display_name = "취업/진로"
+
+[[keywords]]
+keyword = "채용"
+id = "career"
+display_name = "채용정보"
+
+[[keywords]]
+keyword = "알림"
+id = "notice"
+display_name = "알림"
+
+# CMS selector patterns
+# Used to detect and scrape different CMS types
+
+[[cms_patterns]]
+name = "yonsei_standard"
+# Patterns to detect this CMS
+detect_url_contains = ".do"
+detect_html_contains = "c-board-title"
+# Selectors for scraping
+row_selector = "tr:has(a.c-board-title)"
+title_selector = "a.c-board-title"
+date_selector = "td:nth-last-child(1)"
+link_attr = "href"
+
+[[cms_patterns]]
+name = "nx_cms"
+# NX CMS used by physics.yonsei.ac.kr and similar sites
+detect_html_contains = "yon_board"
+# Selectors for scraping
+row_selector = "table.bl_list tr:has(td.td-subject)"
+title_selector = "td.td-subject a"
+date_selector = "td.td-date"
+link_attr = "href"
+
+[[cms_patterns]]
+name = "nx_cms_alt"
+# Alternative NX CMS detection
+detect_html_contains = "NX CMS"
+row_selector = "table.bl_list tr:has(td.td-subject)"
+title_selector = "td.td-subject a"
+date_selector = "td.td-date"
+link_attr = "href"
+
+[[cms_patterns]]
+name = "xe_board"
+detect_html_contains = "xe-list-board"
+# Selectors for scraping
+row_selector = "li.xe-list-board-list--item:not(.xe-list-board-list--header)"
+title_selector = "a.xe-list-board-list__title-link"
+date_selector = ".xe-list-board-list__created_at"
+link_attr = "href"
