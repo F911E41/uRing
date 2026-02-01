@@ -24,17 +24,19 @@ To balance data freshness with retrieval efficiency, `Crawler` utilizes a dual-s
 ### Directory Structure
 
 ```bash
-.
-├── config.toml           # Crawler configuration (used at compile time, e.g., target URLs, schedules)
+storage/
+├── locale.toml           # @TODO: Depreceate this file since we don't need to customize locales in production
+├── config.toml           # Crawler configuration (e.g., target URLs, schedules)
+├── seed.toml             # Seed data for initial crawl targets
+├── siteMap.json          # Sitemap to be crawled by the crawler
 ├── current.json          # Latest active announcements (e.g., current month)
 └── archives              # Immutable historical data
     ├── 2025
     │   ├── 01.json       # Announcements from Jan 2025
     │   ├── ...
-    │   └── 12.json
+    │   └── 12.json       # Announcements from Dec 2025
     └── 2026
-        └── 01.json
-
+        └── 01.json       # Announcements from Jan 2026
 ```
 
 ### 1. Hot Data (`current.json`)

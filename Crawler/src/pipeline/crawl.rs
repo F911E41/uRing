@@ -1,6 +1,6 @@
-// src/pipeline/crawl.rs
-
 //! Notice crawling pipeline.
+//!
+//! Fetches notices from discovered boards and saves using Hot/Cold pattern.
 
 use std::sync::Arc;
 
@@ -11,31 +11,28 @@ use crate::error::Result;
 use crate::models::{Campus, Config, CrawlStats, LocaleConfig};
 use crate::services::NoticeCrawler;
 use crate::storage::NoticeStorage;
-use crate::utils::log;
 
 /// Run the notice crawler.
 pub async fn run_crawler(
     config: Arc<Config>,
     locale: &LocaleConfig,
-    storage: &dyn NoticeStorage,
+    storage: &impl NoticeStorage,
     campuses: &[Campus],
     client: &Client,
 ) -> Result<()> {
     let start_time = Utc::now();
-    log::header(&locale.messages.crawler_starting);
+    log::info!("{}", locale.messages.crawler_starting);
 
     let total_depts: usize = campuses.iter().map(|c| c.department_count()).sum();
     let total_boards: usize = campuses.iter().map(|c| c.board_count()).sum();
 
-    log::info(
-        &locale
-            .messages
-            .loaded_departments
-            .replace("{count_dept}", &total_depts.to_string())
-            .replace("{count_board}", &total_boards.to_string()),
+    log::info!(
+        "Loaded {} departments with {} boards",
+        total_depts,
+        total_boards
     );
 
-    log::info(&locale.messages.crawler_fetching);
+    log::info!("{}", locale.messages.crawler_fetching);
 
     // Initialize the crawler with Config and Client
     let crawler = NoticeCrawler::new(Arc::clone(&config), client.clone())?;
@@ -70,28 +67,24 @@ pub async fn run_crawler(
         detail_success_rate: calc_rate(outcome.detail_total, outcome.detail_failures),
     };
 
-    let summary = storage.write_snapshot(&outcome, campuses, &stats).await?;
+    // Write using Hot/Cold storage pattern
+    let metadata = storage.write_notices(&outcome, campuses, &stats).await?;
 
-    log::success(
-        &locale
-            .messages
-            .storage_saved
-            .replace("{count}", &summary.notice_count.to_string())
-            .replace("{path}", &summary.snapshot_location),
+    log::info!(
+        "Saved {} hot notices + {} cold archive files",
+        metadata.hot_count,
+        metadata.cold_files_updated
     );
 
-    if config.logging.show_progress {
-        log::sub_item(&format!("Snapshot pointer: {}", summary.pointer_location));
-        log::sub_item(&format!("Snapshot timestamp: {}", summary.timestamp));
-    }
-
-    log::success(&locale.messages.crawler_complete);
+    log::info!("{}", locale.messages.crawler_complete);
 
     if outcome.board_failures > 0 || outcome.notice_failures > 0 || outcome.detail_failures > 0 {
-        log::warn(&format!(
+        log::warn!(
             "Crawl completed with issues: {} board fails, {} notice fails, {} detail fails",
-            outcome.board_failures, outcome.notice_failures, outcome.detail_failures
-        ));
+            outcome.board_failures,
+            outcome.notice_failures,
+            outcome.detail_failures
+        );
     }
 
     Ok(())

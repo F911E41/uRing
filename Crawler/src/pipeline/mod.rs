@@ -1,10 +1,12 @@
-// src/pipeline/mod.rs
-
-//! Pipeline entry points for CLI commands.
+//! Pipeline entry points for crawler operations.
+//!
+//! - `run_mapper`: Discover departments and boards from campus URLs
+//! - `run_crawler`: Fetch notices from discovered boards
 
 pub mod crawl;
+#[cfg(feature = "map")]
 pub mod map;
-pub mod pipeline;
-pub mod validate;
 
-pub use pipeline::run_pipeline;
+pub use crawl::run_crawler;
+#[cfg(feature = "map")]
+pub use map::run_mapper;

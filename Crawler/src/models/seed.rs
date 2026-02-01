@@ -1,5 +1,3 @@
-// src/models/seed.rs
-
 //! Seed data model structures (campuses, keywords, CMS patterns).
 
 use std::fs;

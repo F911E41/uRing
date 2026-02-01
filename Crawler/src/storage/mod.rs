@@ -1,144 +1,83 @@
-// src/storage/mod.rs
-
 //! Storage abstractions for notice persistence.
 //!
-//! Unified interface for storing crawler outputs with multiple backends.
+//! Implements the Hot/Cold storage pattern from README.md:
+//! - Hot Data: `current.json` - Latest notices with SWR caching
+//! - Cold Data: `stacks/YYYY/MM.json` - Immutable monthly archives
+//!
+//! ## Directory Structure
+//!
+//! ```text
+//! storage/
+//! ├── current.json          # Hot: Latest notices (SWR cached)
+//! └── stacks/               # Cold: Monthly archives (immutable)
+//!     ├── 2025/
+//!     │   ├── 01.json
+//!     │   └── 12.json
+//!     └── 2026/
+//!         └── 01.json
+//! ```
 
-// Local is default storage backend
 pub mod local;
-
-#[cfg(feature = "s3")]
-pub mod s3;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::error::Result;
-use crate::models::{
-    Campus, Config, CrawlOutcome, CrawlStats, LocaleConfig, NoticeIndexItem, Seed,
-};
+use crate::models::{Campus, CrawlOutcome, CrawlStats, NoticeOutput};
 
-/// Metadata about a snapshot operation.
+// Re-export for convenience
+pub use local::LocalStorage;
+
+/// Metadata about a storage write operation.
 #[derive(Debug, Clone)]
-pub struct SnapshotMetadata {
-    pub notice_count: usize,
+pub struct WriteMetadata {
+    /// Number of notices in current.json
+    pub hot_count: usize,
+    /// Number of archive files updated
+    pub cold_files_updated: usize,
+    /// Timestamp of the write
     pub timestamp: DateTime<Utc>,
-    pub snapshot_location: String,
-    pub pointer_location: String,
 }
 
-/// Pointer file contents for latest snapshot.
+/// Header for current.json with cache control hints.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SnapshotPointer {
-    pub version: String,
+pub struct CurrentData {
+    /// ISO 8601 timestamp of last update
     pub updated_at: DateTime<Utc>,
+    /// Total notice count
+    pub count: usize,
+    /// The notices array
+    pub notices: Vec<NoticeOutput>,
 }
 
-impl SnapshotPointer {
-    pub fn new(version: String) -> Self {
+impl CurrentData {
+    pub fn new(notices: Vec<NoticeOutput>) -> Self {
         Self {
-            version,
             updated_at: Utc::now(),
+            count: notices.len(),
+            notices,
         }
     }
-}
-
-/// Minimal read interface used by config loaders.
-/// (So config loading does NOT depend on concrete storage types.)
-#[async_trait]
-pub trait ByteReader: Send + Sync {
-    async fn read_bytes_optional(&self, key: &str) -> Result<Option<Vec<u8>>>;
 }
 
 /// Trait for notice storage backends.
 #[async_trait]
-pub trait NoticeStorage: ByteReader {
-    /// Write config/seed/locale/sitemap bundle to storage.
-    async fn write_config_bundle(
-        &self,
-        config: &Config,
-        seed: &Seed,
-        locale: &LocaleConfig,
-        site_map: &[Campus],
-    ) -> Result<()>;
-
-    async fn write_snapshot(
+pub trait NoticeStorage: Send + Sync {
+    /// Write notices using Hot/Cold partitioning.
+    ///
+    /// - Hot: Recent notices go to `current.json`
+    /// - Cold: Older notices are archived to `stacks/YYYY/MM.json`
+    async fn write_notices(
         &self,
         outcome: &CrawlOutcome,
         campuses: &[Campus],
         stats: &CrawlStats,
-    ) -> Result<SnapshotMetadata>;
+    ) -> Result<WriteMetadata>;
 
-    async fn load_snapshot(&self) -> Result<Vec<NoticeIndexItem>>;
-}
+    /// Load hot notices from current.json.
+    async fn load_current(&self) -> Result<Vec<NoticeOutput>>;
 
-/// Path utilities (logical key-space shared by all backends).
-pub mod paths {
-    use crate::models::NoticeCategory;
-
-    fn join(base: &str, path: &str) -> String {
-        let base = base.trim_matches('/');
-        let path = path.trim_start_matches('/');
-        if base.is_empty() {
-            path.to_string()
-        } else {
-            format!("{}/{}", base, path)
-        }
-    }
-
-    pub fn config_key(bucket_prefix: &str, file_name: &str) -> String {
-        join(bucket_prefix, &format!("config/{}", file_name))
-    }
-
-    pub fn pointer_key(bucket_prefix: &str) -> String {
-        join(bucket_prefix, "latest.json")
-    }
-
-    pub fn previous_pointer_key(bucket_prefix: &str) -> String {
-        join(bucket_prefix, "previous.json")
-    }
-
-    pub fn snapshot_prefix(bucket_prefix: &str, version: &str) -> String {
-        join(bucket_prefix, &format!("snapshots/{}", version))
-    }
-
-    pub fn index_key(snapshot_prefix: &str, file_name: &str) -> String {
-        join(snapshot_prefix, &format!("index/{}", file_name))
-    }
-
-    pub fn campus_index_key(snapshot_prefix: &str, campus_id: &str) -> String {
-        join(snapshot_prefix, &format!("index/campus/{}.json", campus_id))
-    }
-
-    pub fn category_index_key(snapshot_prefix: &str, category: &NoticeCategory) -> String {
-        join(
-            snapshot_prefix,
-            &format!("index/category/{:?}.json", category).to_lowercase(),
-        )
-    }
-
-    pub fn meta_key(snapshot_prefix: &str, file_name: &str) -> String {
-        join(snapshot_prefix, &format!("meta/{}", file_name))
-    }
-
-    pub fn manifest_key(snapshot_prefix: &str) -> String {
-        join(snapshot_prefix, "_manifest.json")
-    }
-
-    pub fn success_key(snapshot_prefix: &str) -> String {
-        join(snapshot_prefix, "_SUCCESS")
-    }
-
-    pub fn in_progress_key(snapshot_prefix: &str) -> String {
-        join(snapshot_prefix, "_IN_PROGRESS")
-    }
-
-    pub fn detail_key(snapshot_prefix: &str, notice_id: &str) -> String {
-        join(snapshot_prefix, &format!("detail/{}.json", notice_id))
-    }
-
-    pub fn aux_key(snapshot_prefix: &str, file_name: &str) -> String {
-        join(snapshot_prefix, &format!("aux/{}", file_name))
-    }
+    /// Load archived notices for a specific month.
+    async fn load_archive(&self, year: i32, month: u32) -> Result<Vec<NoticeOutput>>;
 }

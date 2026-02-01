@@ -1,44 +1,59 @@
+# -------------------------------------------------
+# Package metadata
+# -------------------------------------------------
+
 [package]
 name = "crawler"
 version = "0.1.0"
 description = "Crawls Yonsei University campus boards for notices"
 
-# Set Rust edition to 2024 edition
+# MIT License
+license = "MIT"
+
+# Default Behavior
+default-run = "crawler"
+
+# Rust Edition
 edition = "2024"
 
-[lib]
-name = "crawler"
-path = "src/lib.rs"
+# -------------------------------------------------
+# Binary targets
+# -------------------------------------------------
 
 [[bin]]
 name = "crawler"
-path = "src/main.rs"
+path = "src/bin/cli.rs"
 required-features = ["cli"]
 
 [[bin]]
 name = "crawler-lambda"
-path = "src/lambda.rs"
+path = "src/bin/lambda.rs"
 required-features = ["lambda"]
 
+# -------------------------------------------------
+# Features for optional dependencies
+# -------------------------------------------------
+
 [features]
-# Log is enabled by default
-default = ["log"]
-cli = ["dep:clap", "log"]
-log = ["dep:tracing", "dep:tracing-subscriber"]
-
-# For AWS S3 and Lambda deployment
+default = ["cli", "map"]
+cli = ["dep:clap", "dep:env_logger"]
+map = [] # Mapping features for board & department discovery
+lambda = [
+    "dep:lambda_runtime",
+    "dep:aws-config",
+    "dep:aws-sdk-s3",
+    "dep:tracing",
+    "dep:tracing-subscriber",
+]
 s3 = ["dep:aws-config", "dep:aws-sdk-s3"]
-lambda = ["dep:lambda_runtime", "s3", "log"]
 
-[profile.release]
-lto = true
-codegen-units = 1
-strip = "symbols"
-panic = "abort"
+# -------------------------------------------------
+# Dependencies
+# -------------------------------------------------
 
 [dependencies]
-# Asynchronous runtime
-tokio = { version = "^1", features = [
+# Async runtime
+tokio = { version = "1", features = [
     "rt-multi-thread",
     "macros",
     "time",
@@ -46,60 +61,54 @@ tokio = { version = "^1", features = [
     "io-util",
 ] }
 
-# Http Client
-reqwest = { version = "^0.12", default-features = false, features = [
+# HTTP client
+reqwest = { version = "0.12", default-features = false, features = [
     "rustls-tls",
     "gzip",
     "brotli",
     "deflate",
 ] }
 
-# Command line argument parsing
-clap = { version = "^4", features = ["derive"], optional = true }
+# CLI (optional)
+clap = { version = "4", features = ["derive"], optional = true }
+env_logger = { version = "0.11", optional = true }
 
-# For serialization and deserialization
-serde = { version = "^1.0", features = ["derive"] }
-serde_json = "^1.0"
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
 
 # HTML parsing
-scraper = "^0.22"
+scraper = "0.22"
+url = "2"
 
-# URL manipulation
-url = "^2.5"
-
-# TOML parsing
-toml = "^0.8"
-
-# Asynchronous utilities
-futures = "^0.3"
-
-# Async traits
+# Async utilities
+futures = "0.3"
 async-trait = "0.1"
 
 # Error handling
-thiserror = "^2.0"
+thiserror = "2"
 
-# Regular expressions
-regex = "^1"
+# Date and time
+chrono = { version = "0.4", features = ["serde"] }
 
-# Hashing utilities
-sha2 = "^0.10"
-hex = "^0.4"
+# Misc
+regex = "1"
+sha2 = "0.10"
+hex = "0.4"
+log = "0.4"
 
-# Date/time handling
-chrono = { version = "^0.4", features = ["serde"] }
+# AWS Serverless
+lambda_runtime = { version = "0.13", optional = true }
+aws-config = { version = "1", optional = true }
+aws-sdk-s3 = { version = "1", optional = true }
 
-# AWS SDK (optional, for Lambda deployment)
-lambda_runtime = { version = "^0.13", optional = true }
-aws-config = { version = "^1.6", optional = true }
-aws-sdk-s3 = { version = "^1.91", optional = true }
-
-# Tracing for Lambda
-tracing = { version = "^0.1", optional = true }
-tracing-subscriber = { version = "^0.3", optional = true, features = [
+# Tracing for logging in Lambda
+tracing = { version = "0.1", optional = true }
+tracing-subscriber = { version = "0.3", optional = true, features = [
     "env-filter",
     "json",
 ] }
 
 [dev-dependencies]
-tempfile = "^3.24"
+tempfile = "3"

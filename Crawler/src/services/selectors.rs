@@ -1,5 +1,3 @@
-// src/services/selectors.rs
-
 //! CMS selector detection service.
 //!
 //! Detects the CMS type used by a website and returns appropriate CSS selectors.
@@ -7,7 +5,6 @@
 use scraper::Html;
 
 use crate::models::{CmsPattern, CmsSelectors, Seed};
-use crate::utils::log::debug;
 
 /// Service for detecting CMS types and returning appropriate selectors.
 pub struct SelectorDetector {
@@ -27,13 +24,7 @@ impl SelectorDetector {
 
         self.patterns.iter().find_map(|pattern| {
             if self.matches_pattern(pattern, url, &html_lower) {
-                // Log the detected CMS pattern name for debugging
-                if cfg!(debug_assertions) {
-                    debug(&format!(
-                        "Detected CMS pattern: '{}' for URL: {}",
-                        pattern.name, url
-                    ));
-                }
+                log::debug!("Detected CMS pattern: '{}' for URL: {}", pattern.name, url);
                 Some(CmsSelectors::from_pattern(
                     &pattern.row_selector,
                     &pattern.title_selector,

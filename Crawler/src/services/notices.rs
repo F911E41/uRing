@@ -1,5 +1,3 @@
-// src/services/notices.rs
-
 //! Notice crawler service.
 //!
 //! Fetches notices from department boards using configured CSS selectors.
@@ -16,8 +14,7 @@ use crate::error::{AppError, Result};
 use crate::models::{
     Board, Campus, Config, CrawlError, CrawlOutcome, CrawlStage, DepartmentRef, Notice,
 };
-use crate::utils::url::extract_notice_id;
-use crate::utils::{http, log, resolve_url};
+use crate::utils::{extract_notice_id, http, resolve_url};
 
 #[derive(Clone)]
 struct BoardSelectors {
@@ -26,7 +23,6 @@ struct BoardSelectors {
     date: Selector,
     author: Option<Selector>,
     link: Option<Selector>,
-    body: Option<Selector>,
 }
 
 struct BoardListResult {
@@ -112,10 +108,12 @@ impl NoticeCrawler {
                         None,
                         &error,
                     ));
-                    log::warn(&format!(
+                    log::warn!(
                         "Failed to fetch board list {} ({}): {}",
-                        board.name, board.url, error
-                    ));
+                        board.name,
+                        board.url,
+                        error
+                    );
                 }
             }
         }
@@ -173,7 +171,7 @@ impl NoticeCrawler {
                         message: error.to_string(),
                         retryable: error.is_retryable(),
                     });
-                    log::warn(&format!("Failed to fetch notice detail: {}", error));
+                    log::warn!("Failed to fetch notice detail: {}", error);
                 }
             }
         }
@@ -218,26 +216,15 @@ impl NoticeCrawler {
         })
     }
 
-    /// Fetch the body for a single notice.
+    /// Process a single notice (placeholder for future detail fetching).
     async fn fetch_notice_detail(
         &self,
-        mut notice: Notice,
-        board_lookup: &HashMap<&str, &Board>,
-        selector_cache: &HashMap<String, Arc<BoardSelectors>>,
+        notice: Notice,
+        _board_lookup: &HashMap<&str, &Board>,
+        _selector_cache: &HashMap<String, Arc<BoardSelectors>>,
     ) -> Result<Notice> {
-        let board = self.find_board(&notice, board_lookup)?;
-        let selectors = selector_cache
-            .get(&board.id)
-            .ok_or_else(|| AppError::crawl("selector_cache", "Missing selector cache entry"))?;
-        if let Some(body_sel) = selectors.body.as_ref() {
-            if !notice.link.is_empty() {
-                self.apply_request_delay().await;
-                let document = http::fetch_page_async(&self.client, &notice.link).await?;
-                if let Some(body_elem) = document.select(body_sel).next() {
-                    notice.body = body_elem.inner_html();
-                }
-            }
-        }
+        // Note: Body content is no longer stored per README.md schema
+        // This method is kept for future pinned detection or other metadata
         Ok(notice)
     }
 
@@ -292,7 +279,7 @@ impl NoticeCrawler {
             date,
             link,
             source_id,
-            body: String::new(), // Body will be fetched later
+            is_pinned: false, // TODO: Detect pinned notices from row styling
         })
     }
 
@@ -391,22 +378,6 @@ impl NoticeCrawler {
                         },
                         None => None,
                     };
-                    let body = match board.selectors.body_selector.as_ref() {
-                        Some(sel) => match Self::parse_selector(sel) {
-                            Ok(parsed) => Some(parsed),
-                            Err(err) => {
-                                errors.push(Self::build_error(
-                                    CrawlStage::Selector,
-                                    Some(board),
-                                    Some(&board.url),
-                                    None,
-                                    &err,
-                                ));
-                                None
-                            }
-                        },
-                        None => None,
-                    };
 
                     cache.insert(
                         board.id.clone(),
@@ -416,7 +387,6 @@ impl NoticeCrawler {
                             date,
                             author,
                             link,
-                            body,
                         }),
                     );
                 }
@@ -453,6 +423,7 @@ impl NoticeCrawler {
             .collect()
     }
 
+    #[allow(dead_code)]
     fn find_board<'a>(
         &self,
         notice: &Notice,

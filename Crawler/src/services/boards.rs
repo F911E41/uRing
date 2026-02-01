@@ -1,5 +1,3 @@
-// src/services/boards.rs
-
 //! Board discovery service.
 //!
 //! Discovers notice boards on department websites by analyzing page content
@@ -17,7 +15,7 @@ use crate::models::{
     Board, BoardDiscoveryResult, CmsSelectors, DiscoveryConfig, KeywordMapping, ManualReviewItem,
 };
 use crate::services::SelectorDetector;
-use crate::utils::{http::fetch_page_async, log, url};
+use crate::utils::{get_domain, http::fetch_page_async, resolve};
 
 /// Service for discovering boards on department websites.
 pub struct BoardDiscoveryService<'a> {
@@ -75,7 +73,7 @@ impl<'a> BoardDiscoveryService<'a> {
             }
         };
 
-        log::info(&format!("    Accessed: {dept_url}"));
+        log::debug!("Accessed: {}", dept_url);
 
         let default_selectors = self.selector_detector.detect(&document, dept_url);
 
@@ -87,7 +85,7 @@ impl<'a> BoardDiscoveryService<'a> {
             .await;
 
         if result.boards.is_empty() && sitemap_doc.is_some() {
-            log::info("    Sitemap yielded no results, falling back to homepage");
+            log::debug!("Sitemap yielded no results, falling back to homepage");
             result.boards = self
                 .extract_boards(&document, dept_url, &default_selectors)
                 .await;
@@ -115,10 +113,11 @@ impl<'a> BoardDiscoveryService<'a> {
             }
 
             if let Some(href) = element.value().attr("href") {
-                let sitemap_url = url::resolve(base_url, href);
-                if let Ok(sitemap_doc) = fetch_page_async(self.client, &sitemap_url).await {
-                    log::info(&format!("    Found sitemap: {sitemap_url}"));
-                    return Some(sitemap_doc);
+                if let Some(sitemap_url) = resolve(base_url, href) {
+                    if let Ok(sitemap_doc) = fetch_page_async(self.client, &sitemap_url).await {
+                        log::debug!("Found sitemap: {}", sitemap_url);
+                        return Some(sitemap_doc);
+                    }
                 }
             }
         }
@@ -144,7 +143,7 @@ impl<'a> BoardDiscoveryService<'a> {
         default_selectors: &Option<CmsSelectors>,
     ) -> Vec<Board> {
         let mut id_counts: HashMap<String, usize> = HashMap::new();
-        let base_domain = url::get_domain(base_url);
+        let base_domain = get_domain(base_url);
         let link_selector = Selector::parse("a[href]").unwrap();
 
         let mut seen_urls = HashSet::new();
@@ -156,13 +155,14 @@ impl<'a> BoardDiscoveryService<'a> {
                 if !self.is_valid_board_link(&text, href) {
                     continue;
                 }
-                let full_url = url::resolve(base_url, href);
+                let Some(full_url) = resolve(base_url, href) else {
+                    continue;
+                };
                 if seen_urls.contains(&full_url) || href.contains("javascript") || href == "#" {
                     continue;
                 }
 
-                if let (Some(base_dom), Some(link_dom)) = (&base_domain, url::get_domain(&full_url))
-                {
+                if let (Some(base_dom), Some(link_dom)) = (&base_domain, get_domain(&full_url)) {
                     if base_dom != &link_dom {
                         continue;
                     }

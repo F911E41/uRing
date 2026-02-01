@@ -1,5 +1,3 @@
-// src/models/config.rs
-
 //! Application configuration structures.
 
 use std::fs;
@@ -8,7 +6,6 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::error::{AppError, Result};
-use crate::utils::log;
 
 /// Root application configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,10 +45,11 @@ impl Config {
     /// Load configuration or return default if loading fails.
     pub fn load_or_default(path: impl AsRef<Path>) -> Self {
         Self::load(&path).unwrap_or_else(|e| {
-            log::warn(&format!(
-                "Config load failed from {:?}: {e}. Using defaults.",
-                path.as_ref()
-            ));
+            log::warn!(
+                "Config load failed from {:?}: {}. Using defaults.",
+                path.as_ref(),
+                e
+            );
             Self::default()
         })
     }
@@ -346,10 +344,11 @@ impl LocaleConfig {
     /// Load locale or return default if loading fails.
     pub fn load_or_default(path: impl AsRef<Path>) -> Self {
         Self::load(&path).unwrap_or_else(|e| {
-            log::warn(&format!(
-                "Locale load failed from {:?}: {e}. Using defaults.",
-                path.as_ref()
-            ));
+            log::warn!(
+                "Locale load failed from {:?}: {}. Using defaults.",
+                path.as_ref(),
+                e
+            );
             Self::default()
         })
     }

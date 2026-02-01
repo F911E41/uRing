@@ -1,5 +1,3 @@
-// src/utils/http.rs
-
 //! HTTP client utilities.
 
 use std::time::Duration;
@@ -10,8 +8,8 @@ use scraper::Html;
 use crate::error::{AppError, Result};
 use crate::models::CrawlerConfig;
 
-/// Create a configured asynchronous HTTP client.
-pub fn create_async_client(config: &CrawlerConfig) -> Result<reqwest::Client> {
+/// Create a configured HTTP client.
+pub fn create_client(config: &CrawlerConfig) -> Result<reqwest::Client> {
     let mut headers = header::HeaderMap::new();
     headers.insert(
         header::ACCEPT,

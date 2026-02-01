@@ -1,6 +1,8 @@
-// src/error.rs
-
 //! Unified error handling for the crawler application.
+//!
+//! This module defines the `AppError` enum which encapsulates
+//! various error types that can occur throughout the application,
+//! including I/O errors, HTTP errors, parsing errors, and domain-specific errors.
 
 use std::fmt;
 

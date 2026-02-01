@@ -17,9 +17,6 @@ sitemap_timeout_secs = 5
 max_concurrent = 5
 
 [paths]
-# Path to site map configuration
-site_map = "data/siteMap.json"
-
 # Path to output directory (will create department subdirectories with board JSON files)
 output = "data/output"
 
@@ -55,10 +52,6 @@ json_enabled = true
 
 # Pretty print JSON output
 json_pretty = true
-
-# Console output format for notices
-# Available placeholders: {dept_name}, {board_name}, {title}, {date}, {link}
-notice_format = "📌 [{dept_name}:{board_name}] {title}\n   📅 {date}\n   🔗 {link}"
 
 [logging]
 # Log level: error, warn, info, debug, trace

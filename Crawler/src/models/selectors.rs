@@ -1,5 +1,3 @@
-// src/models/selectors.rs
-
 //! CSS selectors for scraping a notice board.
 
 use serde::{Deserialize, Serialize};

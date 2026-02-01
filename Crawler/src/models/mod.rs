@@ -1,9 +1,12 @@
-// src/models/mod.rs
-
 //! Domain models for the crawler application.
 //!
 //! This module contains all data structures used throughout the application,
 //! organized by their primary purpose.
+//!
+//! ## Storage Schema (README.md aligned)
+//!
+//! - Hot Data: `current.json` - Array of recent notices
+//! - Cold Data: `stacks/YYYY/MM.json` - Monthly archives
 
 mod campus;
 mod config;
@@ -17,7 +20,7 @@ use serde::{Deserialize, Serialize};
 // Re-export all public types
 pub use campus::{Board, Campus, CampusMeta, College, Department, DepartmentRef};
 pub use config::{Config, CrawlerConfig, DiscoveryConfig, LocaleConfig};
-pub use notice::Notice;
+pub use notice::{Notice, NoticeOutput};
 pub use seed::{CampusInfo, CmsPattern, KeywordMapping, Seed};
 pub use selectors::CmsSelectors;
 
@@ -204,33 +207,4 @@ pub struct ManualReviewItem {
     pub name: String,
     pub url: String,
     pub reason: String,
-}
-
-/// A summarized notice for index files.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NoticeIndexItem {
-    pub id: String,
-    pub title: String,
-    pub date: String,
-    pub link: String,
-    pub department_name: String,
-    pub board_name: String,
-    pub category: NoticeCategory,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub content_hash: Option<String>,
-}
-
-impl From<&Notice> for NoticeIndexItem {
-    fn from(notice: &Notice) -> Self {
-        Self {
-            id: notice.canonical_id(),
-            title: notice.title.clone(),
-            date: notice.date.clone(),
-            link: notice.link.clone(),
-            department_name: notice.department_name.clone(),
-            board_name: notice.board_name.clone(),
-            category: map_category(&notice.board_name),
-            content_hash: Some(notice.content_hash()),
-        }
-    }
 }
