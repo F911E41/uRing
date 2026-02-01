@@ -7,17 +7,12 @@ variable "region" {
 
 variable "bucket_name" {
   type    = string
-  default = "uring-notices"
+  default = "uring-announcements"
 }
 
 variable "s3_prefix" {
   type    = string
-  default = ""
-}
-
-variable "sitemap_s3_key" {
-  type    = string
-  default = "config/sitemap.json"
+  default = "v1"
 }
 
 variable "lambda_zip_path" {
@@ -99,12 +94,11 @@ resource "aws_lambda_function" "crawler_func" {
       RUST_LOG       = "info"
       S3_BUCKET      = aws_s3_bucket.data_bucket.id
       S3_PREFIX      = var.s3_prefix
-      SITEMAP_S3_KEY = var.sitemap_s3_key
     }
   }
 }
 
-# EventBridge schedule (1-minute interval)
+# EventBridge schedule (10-minute interval)
 resource "aws_cloudwatch_event_rule" "crawler_schedule" {
   name                = "uring-crawler-schedule"
   schedule_expression = var.schedule_expression
