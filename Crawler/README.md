@@ -25,8 +25,9 @@ To balance data freshness with retrieval efficiency, `Crawler` utilizes a dual-s
 
 ```bash
 .
-├── current.json          # [HOT] Latest active announcements (e.g., current month)
-└── archives              # [COLD] Immutable historical data
+├── config.toml           # Crawler configuration (used at compile time, e.g., target URLs, schedules)
+├── current.json          # Latest active announcements (e.g., current month)
+└── archives              # Immutable historical data
     ├── 2025
     │   ├── 01.json       # Announcements from Jan 2025
     │   ├── ...
