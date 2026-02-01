@@ -47,7 +47,7 @@ enum Command {
 
     /// Crawl notices from all discovered boards
     Crawl {
-        /// Path to sitemap file (default: {storage_dir}/sitemap.json)
+        /// Path to sitemap file (default: {storage_dir}/siteMap.json)
         #[arg(long)]
         sitemap: Option<PathBuf>,
     },
@@ -96,7 +96,7 @@ async fn main() -> Result<()> {
 
     let config = Arc::new(config);
     let storage = LocalStorage::new(&cli.storage_dir);
-    let sitemap_path = cli.storage_dir.join("sitemap.json");
+    let sitemap_path = cli.storage_dir.join("siteMap.json");
 
     match cli.command {
         #[cfg(feature = "map")]
@@ -157,9 +157,10 @@ async fn main() -> Result<()> {
             let campuses = if skip_map {
                 if !sitemap_path.exists() {
                     return Err(crawler::error::AppError::config(
-                        "Cannot skip map: sitemap.json not found",
+                        "Cannot skip map: siteMap.json not found",
                     ));
                 }
+
                 log::info!("Skipping map, loading existing sitemap...");
                 Campus::load_all(&sitemap_path)?
             } else {

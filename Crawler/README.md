@@ -25,17 +25,16 @@ To balance data freshness with retrieval efficiency, `Crawler` utilizes a dual-s
 
 ```bash
 storage/
-├── locale.toml           # @TODO: Depreceate this file since we don't need to customize locales in production
 ├── config.toml           # Crawler configuration (e.g., target URLs, schedules)
 ├── seed.toml             # Seed data for initial crawl targets
 ├── siteMap.json          # Sitemap to be crawled by the crawler
 ├── current.json          # Latest active announcements (e.g., current month)
-└── archives              # Immutable historical data
-    ├── 2025
+└── stacks/               # Immutable historical data
+    ├── 2025/
     │   ├── 01.json       # Announcements from Jan 2025
     │   ├── ...
     │   └── 12.json       # Announcements from Dec 2025
-    └── 2026
+    └── 2026/
         └── 01.json       # Announcements from Jan 2026
 ```
 
@@ -48,7 +47,7 @@ storage/
 * CloudFront updates the cache in the background if the content is stale.
 * *Header:* `Cache-Control: public, max-age=60, stale-while-revalidate=300`
 
-### 2. Cold Data (`archives/YYYY/MM.json`)
+### 2. Cold Data (`stacks/YYYY/MM.json`)
 
 * **Content:** Historical metadata grouped by month.
 * **Update Frequency:** Zero (Write-once, Read-many).
@@ -65,20 +64,30 @@ Since `Crawler` focuses on metadata, the payload is lightweight.
 ```json
 [
   {
-    "id": "20260131-001",
-    "title": "2026 Spring Semester Course Registration Guide",
-    "url": "[https://univ.edu/notice/12345](https://univ.edu/notice/12345)",
-    "date": "2026-01-31",
-    "category": "Academic",
-    "is_pinned": true
+    "id": "yonsei_ee_0001",
+    "title": "공지사항 제목",
+    "link": "https://ee.yonsei.ac.kr/",
+    "metadata": {
+      "campus": "신촌캠퍼스",
+      "college": "공과대학",
+      "department_name": "전기전자공학부",
+      "board_name": "학사공지",
+      "date": "2025-12-15",
+      "pinned": false
+    }
   },
   {
-    "id": "20260130-004",
-    "title": "Campus Bus Schedule Change",
-    "url": "[https://univ.edu/notice/12340](https://univ.edu/notice/12340)",
-    "date": "2026-01-30",
-    "category": "Traffic",
-    "is_pinned": false
+    "id": "yonsei_cais_0001",
+    "title": "2026 Spring Semester Course Registration Guide",
+    "link": "https://univ.edu/notice/12345",
+    "metadata": {
+      "campus": "신촌캠퍼스",
+      "college": "인공지능융합대학",
+      "department_name": "첨단융합공학부",
+      "board_name": "취업정보",
+      "date": "2026-01-31",
+      "pinned": false
+    }
   }
 ]
 ```

@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 // Re-export all public types
 pub use campus::{Board, Campus, CampusMeta, College, Department, DepartmentRef};
 pub use config::{Config, CrawlerConfig, DiscoveryConfig, LocaleConfig};
-pub use notice::{Notice, NoticeOutput};
+pub use notice::{Notice, NoticeMetadata, NoticeOutput};
 pub use seed::{CampusInfo, CmsPattern, KeywordMapping, Seed};
 pub use selectors::CmsSelectors;
 
@@ -108,73 +108,6 @@ impl From<&CrawlOutcome> for CrawlOutcomeReport {
             detail_failures: outcome.detail_failures,
             errors: outcome.errors.clone(),
         }
-    }
-}
-
-/// Represents a notice category.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-#[serde(rename_all = "snake_case")]
-pub enum NoticeCategory {
-    Academic,
-    Scholarship,
-    Recruitment,
-    Event,
-    General,
-    Other,
-}
-
-/// Metadata for notice categories.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CategoryMeta {
-    pub id: NoticeCategory,
-    pub name: String,
-}
-
-impl CategoryMeta {
-    pub fn all() -> Vec<CategoryMeta> {
-        vec![
-            CategoryMeta {
-                id: NoticeCategory::Academic,
-                name: "학사".to_string(),
-            },
-            CategoryMeta {
-                id: NoticeCategory::Scholarship,
-                name: "장학".to_string(),
-            },
-            CategoryMeta {
-                id: NoticeCategory::Recruitment,
-                name: "채용".to_string(),
-            },
-            CategoryMeta {
-                id: NoticeCategory::Event,
-                name: "행사".to_string(),
-            },
-            CategoryMeta {
-                id: NoticeCategory::General,
-                name: "일반".to_string(),
-            },
-            CategoryMeta {
-                id: NoticeCategory::Other,
-                name: "기타".to_string(),
-            },
-        ]
-    }
-}
-
-/// Maps a board name to a notice category.
-pub fn map_category(board_name: &str) -> NoticeCategory {
-    if board_name.contains("학사") {
-        NoticeCategory::Academic
-    } else if board_name.contains("장학") {
-        NoticeCategory::Scholarship
-    } else if board_name.contains("채용") || board_name.contains("취업") {
-        NoticeCategory::Recruitment
-    } else if board_name.contains("행사") || board_name.contains("안내") {
-        NoticeCategory::Event
-    } else if board_name.contains("일반") {
-        NoticeCategory::General
-    } else {
-        NoticeCategory::Other
     }
 }
 

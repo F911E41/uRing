@@ -181,10 +181,6 @@ pub struct PathsConfig {
     #[serde(default = "defaults::output_dir")]
     pub output_dir: String,
 
-    /// Output filename for crawled data
-    #[serde(default = "defaults::output_dir")]
-    pub output: String,
-
     /// Departments list filename
     #[serde(default = "defaults::departments_file")]
     pub departments_file: String,
@@ -203,7 +199,6 @@ impl Default for PathsConfig {
         Self {
             seed_file: defaults::seed_file(),
             output_dir: defaults::output_dir(),
-            output: defaults::output_dir(),
             departments_file: defaults::departments_file(),
             departments_boards_file: defaults::departments_boards_file(),
             manual_review_file: defaults::manual_review_file(),

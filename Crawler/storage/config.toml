@@ -17,14 +17,11 @@ sitemap_timeout_secs = 5
 max_concurrent = 5
 
 [paths]
-# Path to output directory (will create department subdirectories with board JSON files)
-output = "data/output"
-
 # Seed configuration file (campuses and keywords)
 seed = "data/seed.toml"
 
 # Output directory
-output_dir = "data/output"
+output_dir = "storage"
 
 # Output file names
 manual_review_file = "Temp/manual_review_needed.json"
@@ -46,12 +43,6 @@ to = "."
 [output]
 # Enable console output
 console_enabled = false
-
-# Enable JSON file output
-json_enabled = true
-
-# Pretty print JSON output
-json_pretty = true
 
 [logging]
 # Log level: error, warn, info, debug, trace

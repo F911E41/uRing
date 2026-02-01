@@ -6,8 +6,6 @@ use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use super::NoticeCategory;
-
 /// A notice fetched from a board (internal representation).
 ///
 /// This contains all crawled metadata. For JSON output, convert to `NoticeOutput`.
@@ -118,37 +116,70 @@ impl Notice {
 
 use chrono::Datelike;
 
+/// Metadata for a notice (nested in NoticeOutput).
+///
+/// Matches README.md schema:
+/// ```json
+/// "metadata": {
+///   "campus": "신촌캠퍼스",
+///   "college": "공과대학",
+///   "department_name": "전기전자공학부",
+///   "board_name": "학사공지",
+///   "date": "2025-12-15",
+///   "pinned": false
+/// }
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct NoticeMetadata {
+    /// Campus name (e.g., "신촌캠퍼스")
+    pub campus: String,
+
+    /// College name (empty string if department is directly under campus)
+    pub college: String,
+
+    /// Department display name
+    pub department_name: String,
+
+    /// Board display name
+    pub board_name: String,
+
+    /// Notice date (YYYY-MM-DD format)
+    pub date: String,
+
+    /// Whether this notice is pinned/important
+    pub pinned: bool,
+}
+
 /// Output format for JSON files (matches README.md schema).
 ///
 /// ```json
 /// {
-///   "id": "20260131-001",
-///   "title": "2026 Spring Semester Course Registration Guide",
-///   "url": "https://univ.edu/notice/12345",
-///   "date": "2026-01-31",
-///   "category": "academic",
-///   "is_pinned": true
+///   "id": "yonsei_ee_20251215_0001",
+///   "title": "공지사항 제목",
+///   "link": "https://ee.yonsei.ac.kr/",
+///   "metadata": {
+///     "campus": "신촌캠퍼스",
+///     "college": "공과대학",
+///     "department_name": "전기전자공학부",
+///     "board_name": "학사공지",
+///     "date": "2025-12-15",
+///     "pinned": false
+///   }
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct NoticeOutput {
-    /// Unique identifier (format: YYYYMMDD-XXX)
+    /// Unique identifier (format: {campus}_{dept}_{YYYYMMDD}_{seq})
     pub id: String,
 
     /// Notice title
     pub title: String,
 
     /// Full URL to the notice
-    pub url: String,
+    pub link: String,
 
-    /// Notice date (YYYY-MM-DD format)
-    pub date: String,
-
-    /// Notice category
-    pub category: NoticeCategory,
-
-    /// Whether this notice is pinned/important
-    pub is_pinned: bool,
+    /// Notice metadata
+    pub metadata: NoticeMetadata,
 }
 
 impl From<&Notice> for NoticeOutput {
@@ -156,10 +187,15 @@ impl From<&Notice> for NoticeOutput {
         Self {
             id: notice.canonical_id(),
             title: notice.title.clone(),
-            url: notice.link.clone(),
-            date: notice.normalized_date(),
-            category: super::map_category(&notice.board_name),
-            is_pinned: notice.is_pinned,
+            link: notice.link.clone(),
+            metadata: NoticeMetadata {
+                campus: notice.campus.clone(),
+                college: notice.college.clone(),
+                department_name: notice.department_name.clone(),
+                board_name: notice.board_name.clone(),
+                date: notice.normalized_date(),
+                pinned: notice.is_pinned,
+            },
         }
     }
 }
@@ -240,8 +276,12 @@ mod tests {
         let output: NoticeOutput = (&notice).into();
 
         assert_eq!(output.title, notice.title);
-        assert_eq!(output.url, notice.link);
-        assert_eq!(output.date, "2024-01-15");
-        assert!(!output.is_pinned);
+        assert_eq!(output.link, notice.link);
+        assert_eq!(output.metadata.date, "2024-01-15");
+        assert_eq!(output.metadata.campus, "TestCampus");
+        assert_eq!(output.metadata.college, "TestCollege");
+        assert_eq!(output.metadata.department_name, "Department");
+        assert_eq!(output.metadata.board_name, "공지사항");
+        assert!(!output.metadata.pinned);
     }
 }

@@ -115,8 +115,6 @@ impl NoticeStorage for LocalStorage {
         );
 
         // Partition notices by month
-
-        // Partition notices by month
         let mut by_month: HashMap<(i32, u32), Vec<NoticeOutput>> = HashMap::new();
         for notice in &outcome.notices {
             let (year, month) = notice.archive_period();
@@ -158,7 +156,7 @@ impl NoticeStorage for LocalStorage {
             }
 
             // Sort by date descending
-            existing.sort_by(|a, b| b.date.cmp(&a.date));
+            existing.sort_by(|a, b| b.metadata.date.cmp(&a.metadata.date));
 
             self.write_json(&key, &existing).await?;
             log::info!("Cold data: {} notices written to {}", existing.len(), key);
@@ -227,12 +225,17 @@ mod tests {
         let storage = LocalStorage::new(tmp.path());
 
         let notices = vec![NoticeOutput {
-            id: "20260201-abc123".to_string(),
+            id: "yonsei_test_20260201_0001".to_string(),
             title: "Test Notice".to_string(),
-            url: "https://example.com/1".to_string(),
-            date: "2026-02-01".to_string(),
-            category: crate::models::NoticeCategory::Academic,
-            is_pinned: false,
+            link: "https://example.com/1".to_string(),
+            metadata: crate::models::NoticeMetadata {
+                campus: "신촌캠퍼스".to_string(),
+                college: "공과대학".to_string(),
+                department_name: "테스트학과".to_string(),
+                board_name: "공지사항".to_string(),
+                date: "2026-02-01".to_string(),
+                pinned: false,
+            },
         }];
 
         let current = CurrentData::new(notices);
@@ -241,6 +244,6 @@ mod tests {
         let loaded: CurrentData = storage.read_json("current.json").await.unwrap().unwrap();
 
         assert_eq!(loaded.count, 1);
-        assert_eq!(loaded.notices[0].id, "20260201-abc123");
+        assert_eq!(loaded.notices[0].id, "yonsei_test_20260201_0001");
     }
 }
