@@ -2,6 +2,3 @@
 
 # Ignore build artifacts
 target/
-
-# Ignore data files
-/data/output/**/*.json
