@@ -105,18 +105,34 @@ async fn main() -> Result<()> {
             }
 
             let client = http::create_client(&config.crawler)?;
-            let campuses = pipeline::run_mapper(&config, &client).await?;
+            let result = pipeline::run_mapper(&config, &client).await?;
 
             // Save sitemap
-            let json = serde_json::to_string_pretty(&campuses)?;
+            let json = serde_json::to_string_pretty(&result.campuses)?;
             std::fs::write(&sitemap_path, json)?;
 
             log::info!("Sitemap saved to {}", sitemap_path.display());
             log::info!(
                 "Discovered {} campuses with {} total boards",
-                campuses.len(),
-                campuses.iter().map(|c| c.board_count()).sum::<usize>()
+                result.campuses.len(),
+                result
+                    .campuses
+                    .iter()
+                    .map(|c| c.board_count())
+                    .sum::<usize>()
             );
+
+            // Save manual review items if any
+            if !result.manual_reviews.is_empty() {
+                let review_path = cli.storage_dir.join("mapReview.json");
+                let review_json = serde_json::to_string_pretty(&result.manual_reviews)?;
+                std::fs::write(&review_path, review_json)?;
+                log::warn!(
+                    "{} items need manual review. See {}",
+                    result.manual_reviews.len(),
+                    review_path.display()
+                );
+            }
         }
 
         Command::Crawl { sitemap } => {
@@ -159,11 +175,24 @@ async fn main() -> Result<()> {
                 Campus::load_all(&sitemap_path)?
             } else {
                 log::info!("Step 1/2: Mapping departments and boards...");
-                let campuses = pipeline::run_mapper(&config, &client).await?;
-                let json = serde_json::to_string_pretty(&campuses)?;
+                let result = pipeline::run_mapper(&config, &client).await?;
+                let json = serde_json::to_string_pretty(&result.campuses)?;
                 std::fs::write(&sitemap_path, json)?;
                 log::info!("Sitemap saved to {}", sitemap_path.display());
-                campuses
+
+                // Save manual review items if any
+                if !result.manual_reviews.is_empty() {
+                    let review_path = cli.storage_dir.join("mapReview.json");
+                    let review_json = serde_json::to_string_pretty(&result.manual_reviews)?;
+                    std::fs::write(&review_path, review_json)?;
+                    log::warn!(
+                        "{} items need manual review. See {}",
+                        result.manual_reviews.len(),
+                        review_path.display()
+                    );
+                }
+
+                result.campuses
             };
 
             // Step 2: Crawl

@@ -77,18 +77,31 @@ impl<'a> BoardDiscoveryService<'a> {
 
         let default_selectors = self.selector_detector.detect(&document, dept_url);
 
-        let sitemap_doc = self.find_sitemap(&document, dept_url).await;
-        let source_doc = sitemap_doc.as_ref().unwrap_or(&document);
-
-        result.boards = self
-            .extract_boards(source_doc, dept_url, &default_selectors)
+        // Extract boards from homepage
+        let homepage_boards = self
+            .extract_boards(&document, dept_url, &default_selectors)
             .await;
 
-        if result.boards.is_empty() && sitemap_doc.is_some() {
-            log::debug!("Sitemap yielded no results, falling back to homepage");
-            result.boards = self
-                .extract_boards(&document, dept_url, &default_selectors)
-                .await;
+        // Try sitemap and merge results (instead of fallback-only)
+        let sitemap_boards = if let Some(sitemap_doc) = self.find_sitemap(&document, dept_url).await
+        {
+            self.extract_boards(&sitemap_doc, dept_url, &default_selectors)
+                .await
+        } else {
+            Vec::new()
+        };
+
+        // Merge boards from both sources, deduplicating by URL
+        result.boards = Self::merge_boards(homepage_boards, sitemap_boards);
+
+        // If no boards found at all, mark for manual review
+        if result.boards.is_empty() {
+            result.manual_review = Some(ManualReviewItem {
+                campus: campus.to_string(),
+                name: dept_name.to_string(),
+                url: dept_url.to_string(),
+                reason: "No boards discovered from homepage or sitemap".to_string(),
+            });
         }
 
         result
@@ -96,6 +109,27 @@ impl<'a> BoardDiscoveryService<'a> {
 
     fn is_valid_url(url: &str) -> bool {
         url != "NOT_FOUND" && url.starts_with("http")
+    }
+
+    /// Merge boards from multiple sources, deduplicating by URL.
+    fn merge_boards(primary: Vec<Board>, secondary: Vec<Board>) -> Vec<Board> {
+        use std::collections::HashSet;
+        let mut seen_urls: HashSet<String> = HashSet::new();
+        let mut merged = Vec::new();
+
+        for board in primary {
+            if seen_urls.insert(board.url.clone()) {
+                merged.push(board);
+            }
+        }
+
+        for board in secondary {
+            if seen_urls.insert(board.url.clone()) {
+                merged.push(board);
+            }
+        }
+
+        merged
     }
 
     async fn fetch_department_page(&self, url: &str) -> Result<Html> {

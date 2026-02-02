@@ -22,4 +22,4 @@ pub use diff::{DiffCalculator, DiffResult, calculate_diff};
 pub use index::{IndexBuilder, IndexConfig, InvertedIndex, build_index};
 
 #[cfg(feature = "map")]
-pub use map::run_mapper;
+pub use map::{MapperResult, run_mapper};

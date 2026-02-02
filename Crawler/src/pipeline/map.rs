@@ -14,8 +14,15 @@ use crate::services::{BoardDiscoveryService, DepartmentCrawler, SelectorDetector
 /// Maximum concurrency for board discovery.
 const CONCURRENCY_LIMIT: usize = 14;
 
+/// Result of the mapper operation.
+#[derive(Debug)]
+pub struct MapperResult {
+    pub campuses: Vec<Campus>,
+    pub manual_reviews: Vec<ManualReviewItem>,
+}
+
 /// Run the mapper to discover departments and boards.
-pub async fn run_mapper(config: &Config, client: &Client) -> Result<Vec<Campus>> {
+pub async fn run_mapper(config: &Config, client: &Client) -> Result<MapperResult> {
     log::info!("Mapper starting");
 
     config.validate()?;
@@ -29,7 +36,10 @@ pub async fn run_mapper(config: &Config, client: &Client) -> Result<Vec<Campus>>
 
     if campuses.is_empty() {
         log::error!("No campuses discovered");
-        return Ok(Vec::new());
+        return Ok(MapperResult {
+            campuses: Vec::new(),
+            manual_reviews: Vec::new(),
+        });
     }
 
     // Step 2: Boards Discovery (Parallel Processing)
@@ -94,5 +104,8 @@ pub async fn run_mapper(config: &Config, client: &Client) -> Result<Vec<Campus>>
         total_boards
     );
 
-    Ok(campuses)
+    Ok(MapperResult {
+        campuses,
+        manual_reviews: all_manual_reviews,
+    })
 }
