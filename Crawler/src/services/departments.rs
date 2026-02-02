@@ -105,38 +105,89 @@ impl<'a> DepartmentCrawler<'a> {
     fn extract_departments_from_main(
         &self,
         main_elem: ElementRef,
-        document: &Html,
+        _document: &Html,
     ) -> Vec<(String, String, String)> {
-        let Ok(h1_selector) = Selector::parse("h1") else {
+        // Use composite selector to match h1 and a tags in document order
+        let Ok(selector) = Selector::parse("h1, a") else {
             return Vec::new();
         };
 
-        let college_pattern = Regex::new(r"([가-힣]+대학)$").unwrap();
+        // Pattern to match college names ending with "대학"
+        // Allow spaces between Korean characters (e.g., "소프트웨어디지털 헬스케어융합대학")
+        let college_pattern = Regex::new(r"^([가-힣A-Za-z]+(?:\s*[가-힣A-Za-z]+)*대학)\s*$").unwrap();
+        
+        // Pattern to match "대학명 학과명" format (e.g., "소프트웨어디지털헬스케어융합대학 소프트웨어학부")
+        let college_dept_pattern = Regex::new(r"^([가-힣A-Za-z]+(?:\s*[가-힣A-Za-z]+)*대학)\s+(.+)$").unwrap();
+        
         let mut results: Vec<(String, String, String)> = Vec::new();
+
         let mut current_college = String::new();
+        let mut pending_dept: Option<String> = None;
 
-        let homepage_urls = self.extract_all_homepage_urls(document);
-        let mut url_iter = homepage_urls.into_iter().peekable();
+        // Iterate over descendants of the main element
+        for element in main_elem.select(&selector) {
+            let tag = element.value().name();
 
-        let html = main_elem.html();
-        let fragment = Html::parse_fragment(&html);
+            if tag == "h1" {
+                // If there was a pending department without a URL, mark it as NOT_FOUND
+                if let Some(dept_name) = pending_dept.take() {
+                    results.push((current_college.clone(), dept_name, "NOT_FOUND".to_string()));
+                }
 
-        for header in fragment.select(&h1_selector) {
-            let text = self.clean_header_text(header);
-            if text.is_empty() {
-                continue;
-            }
+                let text = self.clean_header_text(element);
+                if text.is_empty() {
+                    continue;
+                }
 
-            if college_pattern.is_match(&text) {
-                current_college = text;
-            } else if !current_college.is_empty() && !text.contains("대학") {
-                let dept_url = url_iter
-                    .next()
-                    .map(|(_, url)| url)
-                    .unwrap_or_else(|| "NOT_FOUND".to_string());
-                results.push((current_college.clone(), text, dept_url));
+                // First, check if text is "대학명 학과명" format
+                if let Some(caps) = college_dept_pattern.captures(&text) {
+                    let college_name = caps.get(1).map(|m| m.as_str()).unwrap_or("");
+                    let dept_name = caps.get(2).map(|m| m.as_str()).unwrap_or("");
+                    
+                    // Normalize college name by removing extra spaces
+                    let normalized_college = college_name.split_whitespace().collect::<Vec<_>>().join("");
+                    
+                    // Update current college if different
+                    if current_college != normalized_college {
+                        current_college = normalized_college;
+                    }
+                    
+                    // Set pending department
+                    pending_dept = Some(dept_name.trim().to_string());
+                } else if college_pattern.is_match(&text) {
+                    // Just a college name without department
+                    // Normalize college name by removing extra spaces
+                    current_college = text.split_whitespace().collect::<Vec<_>>().join("");
+                } else if !current_college.is_empty() {
+                    // Simple department name (without college prefix)
+                    pending_dept = Some(text);
+                }
+            } else if tag == "a" {
+                // Only interested in links if we have a pending department
+                if pending_dept.is_none() {
+                    continue;
+                }
+
+                let text: String = element.text().collect();
+                if !text.contains("홈페이지") {
+                    continue;
+                }
+
+                if let Some(href) = element.value().attr("href") {
+                    if href.starts_with("http") && !href.starts_with('#') {
+                        if let Some(dept_name) = pending_dept.take() {
+                            results.push((current_college.clone(), dept_name, href.to_string()));
+                        }
+                    }
+                }
             }
         }
+
+        // Handle the last pending department
+        if let Some(dept_name) = pending_dept.take() {
+            results.push((current_college.clone(), dept_name, "NOT_FOUND".to_string()));
+        }
+
         results
     }
 
@@ -148,32 +199,6 @@ impl<'a> DepartmentCrawler<'a> {
             }
         }
         text.trim().to_string()
-    }
-
-    /// Find all homepage URLs in the document.
-    fn extract_all_homepage_urls(&self, document: &Html) -> Vec<(usize, String)> {
-        let Ok(link_selector) = Selector::parse("a") else {
-            return Vec::new();
-        };
-
-        let html = document.html();
-        let mut urls: Vec<(usize, String)> = document
-            .select(&link_selector)
-            .filter_map(|element| {
-                let text: String = element.text().collect();
-                if !text.contains("홈페이지") {
-                    return None;
-                }
-                let href = element.value().attr("href")?;
-                if !href.starts_with("http") || href.starts_with('#') {
-                    return None;
-                }
-                let pos = html.find(href)?;
-                Some((pos, href.to_string()))
-            })
-            .collect();
-        urls.sort_by_key(|(pos, _)| *pos);
-        urls
     }
 
     /// Generate a unique department ID from name or URL.
