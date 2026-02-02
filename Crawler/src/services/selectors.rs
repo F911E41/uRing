@@ -4,13 +4,14 @@
 
 use scraper::Html;
 
-use crate::models::{CmsPattern, CmsSelectors, Seed};
+use crate::models::{CmsPattern, CmsSelectors, Config};
 
 /// Service for detecting CMS types and returning appropriate selectors.
 pub struct SelectorDetector {
     patterns: Vec<CmsPattern>,
 }
 
+/// Implementation of SelectorDetector
 impl SelectorDetector {
     /// Create a new selector detector with the given patterns.
     pub fn new(patterns: Vec<CmsPattern>) -> Self {
@@ -56,12 +57,14 @@ impl SelectorDetector {
     }
 }
 
+/// Default implementation using built-in CMS patterns.
 impl Default for SelectorDetector {
     fn default() -> Self {
-        Self::new(Seed::default().cms_patterns)
+        Self::new(Config::default().cms_patterns)
     }
 }
 
+/// Unit tests for SelectorDetector
 #[cfg(test)]
 mod tests {
     use super::*;

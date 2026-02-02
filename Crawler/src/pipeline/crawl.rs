@@ -1,6 +1,7 @@
 //! Notice crawling pipeline.
 //!
-//! Fetches notices from discovered boards and saves using Hot/Cold pattern.
+//! Fetches notices from discovered boards and saves using Hot/Cold pattern
+//! with Circuit Breaker protection and Inverted Index generation.
 
 use std::sync::Arc;
 
@@ -8,31 +9,37 @@ use chrono::Utc;
 use reqwest::Client;
 
 use crate::error::Result;
-use crate::models::{Campus, Config, CrawlStats, LocaleConfig};
+use crate::models::{Campus, Config, CrawlStats};
 use crate::services::NoticeCrawler;
 use crate::storage::NoticeStorage;
 
-/// Run the notice crawler.
+/// Run the notice crawler with full pipeline.
+///
+/// This function:
+/// 1. Crawls notices from all discovered boards
+/// 2. Validates the result with Circuit Breaker
+/// 3. Calculates diff for notifications
+/// 4. Writes Hot/Cold data with Inverted Index
 pub async fn run_crawler(
     config: Arc<Config>,
-    locale: &LocaleConfig,
     storage: &impl NoticeStorage,
     campuses: &[Campus],
     client: &Client,
 ) -> Result<()> {
     let start_time = Utc::now();
-    log::info!("{}", locale.messages.crawler_starting);
+
+    log::info!("Crawler starting");
 
     let total_depts: usize = campuses.iter().map(|c| c.department_count()).sum();
     let total_boards: usize = campuses.iter().map(|c| c.board_count()).sum();
 
     log::info!(
-        "Loaded {} departments with {} boards",
+        "Loaded {} departments with {} boards.",
         total_depts,
         total_boards
     );
 
-    log::info!("{}", locale.messages.crawler_fetching);
+    log::info!("Fetching notices from boards...");
 
     // Initialize the crawler with Config and Client
     let crawler = NoticeCrawler::new(Arc::clone(&config), client.clone())?;
@@ -67,8 +74,14 @@ pub async fn run_crawler(
         detail_success_rate: calc_rate(outcome.detail_total, outcome.detail_failures),
     };
 
-    // Write using Hot/Cold storage pattern
+    // Write using Hot/Cold storage pattern with Circuit Breaker
     let metadata = storage.write_notices(&outcome, campuses, &stats).await?;
+
+    // Check if circuit breaker was triggered
+    if metadata.circuit_breaker_triggered {
+        log::error!("Circuit breaker triggered! Write aborted to preserve data integrity.");
+        return Ok(());
+    }
 
     log::info!(
         "Saved {} hot notices + {} cold archive files",
@@ -76,7 +89,31 @@ pub async fn run_crawler(
         metadata.cold_files_updated
     );
 
-    log::info!("{}", locale.messages.crawler_complete);
+    // Log diff information for potential notifications
+    if let Some(ref diff) = metadata.diff {
+        if diff.has_changes() {
+            log::info!(
+                "Changes detected: +{} added, ~{} updated, -{} removed",
+                diff.diff.added.len(),
+                diff.diff.updated.len(),
+                diff.diff.removed.len()
+            );
+
+            // Log new notices for notification dispatch
+            for notice in &diff.added_notices {
+                log::debug!(
+                    "NEW: [{}] {} - {}",
+                    notice.metadata.department_name,
+                    notice.title,
+                    notice.link
+                );
+            }
+        } else {
+            log::info!("No changes detected since last crawl");
+        }
+    }
+
+    log::info!("Crawler completed in {:.2?}", end_time - start_time);
 
     if outcome.board_failures > 0 || outcome.notice_failures > 0 || outcome.detail_failures > 0 {
         log::warn!(

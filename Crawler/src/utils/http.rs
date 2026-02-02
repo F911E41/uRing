@@ -1,4 +1,6 @@
 //! HTTP client utilities.
+//!
+//! Provides functions to create a configured HTTP client and fetch web pages.
 
 use std::time::Duration;
 

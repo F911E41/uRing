@@ -16,6 +16,7 @@ use crate::models::{
 };
 use crate::utils::{extract_notice_id, http, resolve_url};
 
+/// Board selectors for notice extraction.
 #[derive(Clone)]
 struct BoardSelectors {
     row: Selector,
@@ -25,6 +26,7 @@ struct BoardSelectors {
     link: Option<Selector>,
 }
 
+/// Result of fetching a board's notice list.
 struct BoardListResult {
     notices: Vec<Notice>,
     row_total: usize,
@@ -37,6 +39,7 @@ pub struct NoticeCrawler {
     client: Client,
 }
 
+/// Implementation of NoticeCrawler
 impl NoticeCrawler {
     /// Create a new notice crawler with the given configuration.
     pub fn new(config: Arc<Config>, client: Client) -> Result<Self> {
@@ -223,7 +226,7 @@ impl NoticeCrawler {
         _board_lookup: &HashMap<&str, &Board>,
         _selector_cache: &HashMap<String, Arc<BoardSelectors>>,
     ) -> Result<Notice> {
-        // Note: Body content is no longer stored per README.md schema
+        // Note: Body content is no longer stored in the notice.
         // This method is kept for future pinned detection or other metadata
         Ok(notice)
     }

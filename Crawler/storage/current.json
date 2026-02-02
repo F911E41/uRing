@@ -1,5 +1,19 @@
 {
-  "updated_at": "2026-02-01T10:06:04.329807Z",
-  "count": 0,
+  "updated_at": "2026-02-01T11:46:27.423672Z",
+  "statistics": {
+    "duration_seconds": 1234,
+    "notice_count": 943,
+    "department_count": 83,
+    "board_count": 233,
+    "board_total": 233,
+    "board_failures": 2,
+    "board_success_rate": 0.99141634,
+    "notice_total": 1111,
+    "notice_failures": 0,
+    "notice_success_rate": 1.0,
+    "detail_total": 943,
+    "detail_failures": 0,
+    "detail_success_rate": 1.0
+  },
   "notices": []
 }

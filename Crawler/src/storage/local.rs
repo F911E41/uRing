@@ -1,17 +1,26 @@
 //! Local filesystem storage implementation.
 //!
-//! Implements Hot/Cold storage pattern for development and testing.
-//! Production deployments should use S3Storage with CloudFront.
+//! Implements Hot/Cold storage pattern with Circuit Breaker and Inverted Index
+//! for development and testing. Production deployments should use S3Storage.
 //!
 //! ## Storage Layout
 //!
 //! ```text
 //! {root}/
-//! ├── current.json          # Hot data: latest notices
-//! └── stacks/               # Cold data: monthly archives
+//! ├── config.toml           # Crawler Configuration
+//! ├── index.json            # Inverted Index for Search
+//! ├── current.json          # Hot: Active Window (Write-Buffer)
+//! ├── siteMap.json          # Site Map for Crawling
+//! └── stacks/               # Cold: Immutable Archives
 //!     └── YYYY/
 //!         └── MM.json
 //! ```
+//!
+//! ## Features
+//!
+//! - **Circuit Breaker**: Aborts write if notice count drops >20%
+//! - **Inverted Index**: Generates `index.json` for client-side search
+//! - **Diff Calculation**: Returns changes for notification dispatch
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -23,12 +32,14 @@ use tokio::io::AsyncWriteExt;
 
 use crate::error::{AppError, Result};
 use crate::models::{Campus, CrawlOutcome, CrawlStats, NoticeOutput};
-use crate::storage::{CurrentData, NoticeStorage, WriteMetadata};
+use crate::pipeline::{CircuitBreaker, InvertedIndex, build_index, calculate_diff};
+use crate::storage::{CurrentData, NoticeStorage, WriteMetadata, WriteOptions};
 
 /// Local filesystem storage backend.
 #[derive(Clone)]
 pub struct LocalStorage {
     root_dir: PathBuf,
+    circuit_breaker: CircuitBreaker,
 }
 
 impl LocalStorage {
@@ -36,6 +47,18 @@ impl LocalStorage {
     pub fn new(root_dir: impl Into<PathBuf>) -> Self {
         Self {
             root_dir: root_dir.into(),
+            circuit_breaker: CircuitBreaker::new(),
+        }
+    }
+
+    /// Create a LocalStorage with custom circuit breaker configuration.
+    pub fn with_circuit_breaker(
+        root_dir: impl Into<PathBuf>,
+        circuit_breaker: CircuitBreaker,
+    ) -> Self {
+        Self {
+            root_dir: root_dir.into(),
+            circuit_breaker,
         }
     }
 
@@ -95,16 +118,15 @@ impl LocalStorage {
     fn archive_key(year: i32, month: u32) -> String {
         format!("stacks/{}/{:02}.json", year, month)
     }
-}
 
-#[async_trait]
-impl NoticeStorage for LocalStorage {
-    async fn write_notices(
+    /// Write hot/cold data and generate index.
+    async fn write_hot_cold_data(
         &self,
         outcome: &CrawlOutcome,
-        _campuses: &[Campus],
         stats: &CrawlStats,
-    ) -> Result<WriteMetadata> {
+        all_notices: &[NoticeOutput],
+        options: &WriteOptions,
+    ) -> Result<(usize, usize)> {
         let now = Utc::now();
         let current_year = now.year();
         let current_month = now.month();
@@ -163,13 +185,101 @@ impl NoticeStorage for LocalStorage {
             cold_files_updated += 1;
         }
 
+        // Generate and write inverted index
+        if options.generate_index {
+            log::info!(
+                "Generating inverted index for {} notices",
+                all_notices.len()
+            );
+            let index = build_index(all_notices);
+            self.save_index(&index).await?;
+            log::info!(
+                "Inverted index: {} tokens indexing {} notices",
+                index.token_count,
+                index.notice_count
+            );
+        }
+
         // Write stats for debugging
         self.write_json("stats.json", stats).await?;
 
+        Ok((current_data.count, cold_files_updated))
+    }
+}
+
+#[async_trait]
+impl NoticeStorage for LocalStorage {
+    async fn write_notices(
+        &self,
+        outcome: &CrawlOutcome,
+        campuses: &[Campus],
+        stats: &CrawlStats,
+    ) -> Result<WriteMetadata> {
+        // Use default safe options
+        self.write_notices_with_options(outcome, campuses, stats, &WriteOptions::safe())
+            .await
+    }
+
+    async fn write_notices_with_options(
+        &self,
+        outcome: &CrawlOutcome,
+        _campuses: &[Campus],
+        stats: &CrawlStats,
+        options: &WriteOptions,
+    ) -> Result<WriteMetadata> {
+        let now = Utc::now();
+
+        // Convert notices to output format
+        let current_notices: Vec<NoticeOutput> =
+            outcome.notices.iter().map(NoticeOutput::from).collect();
+
+        // Load previous snapshot for circuit breaker and diff
+        let previous_notices = self.load_current().await.unwrap_or_default();
+
+        // Circuit Breaker Check
+        if options.circuit_breaker && !options.force_write {
+            if let Err(_) = self
+                .circuit_breaker
+                .validate(&current_notices, &previous_notices)
+            {
+                log::error!("Circuit breaker triggered - aborting write!");
+                return Ok(WriteMetadata {
+                    hot_count: 0,
+                    cold_files_updated: 0,
+                    timestamp: now,
+                    diff: None,
+                    circuit_breaker_triggered: true,
+                });
+            }
+        }
+
+        // Calculate diff for notifications
+        let diff = if options.calculate_diff {
+            let diff_result = calculate_diff(&previous_notices, &current_notices);
+            if diff_result.has_changes() {
+                log::info!(
+                    "Diff: {} added, {} updated, {} removed",
+                    diff_result.diff.added.len(),
+                    diff_result.diff.updated.len(),
+                    diff_result.diff.removed.len()
+                );
+            }
+            Some(diff_result)
+        } else {
+            None
+        };
+
+        // Write hot/cold data and generate index
+        let (hot_count, cold_files_updated) = self
+            .write_hot_cold_data(outcome, stats, &current_notices, options)
+            .await?;
+
         Ok(WriteMetadata {
-            hot_count: current_data.count,
+            hot_count,
             cold_files_updated,
             timestamp: now,
+            diff,
+            circuit_breaker_triggered: false,
         })
     }
 
@@ -193,11 +303,21 @@ impl NoticeStorage for LocalStorage {
             }
         }
     }
+
+    async fn load_index(&self) -> Result<Option<InvertedIndex>> {
+        self.read_json("index.json").await
+    }
+
+    async fn save_index(&self, index: &InvertedIndex) -> Result<()> {
+        self.write_json("index.json", index).await
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::NoticeMetadata;
+    use crate::pipeline::CircuitBreakerConfig;
     use tempfile::TempDir;
 
     #[tokio::test]
@@ -228,7 +348,7 @@ mod tests {
             id: "yonsei_test_20260201_0001".to_string(),
             title: "Test Notice".to_string(),
             link: "https://example.com/1".to_string(),
-            metadata: crate::models::NoticeMetadata {
+            metadata: NoticeMetadata {
                 campus: "신촌캠퍼스".to_string(),
                 college: "공과대학".to_string(),
                 department_name: "테스트학과".to_string(),
@@ -245,5 +365,47 @@ mod tests {
 
         assert_eq!(loaded.count, 1);
         assert_eq!(loaded.notices[0].id, "yonsei_test_20260201_0001");
+    }
+
+    #[tokio::test]
+    async fn test_inverted_index_save_load() {
+        let tmp = TempDir::new().unwrap();
+        let storage = LocalStorage::new(tmp.path());
+
+        let notices = vec![NoticeOutput {
+            id: "001".to_string(),
+            title: "장학금 신청 안내".to_string(),
+            link: "https://example.com/1".to_string(),
+            metadata: NoticeMetadata {
+                campus: "신촌캠퍼스".to_string(),
+                college: "".to_string(),
+                department_name: "학생처".to_string(),
+                board_name: "공지".to_string(),
+                date: "2026-02-02".to_string(),
+                pinned: false,
+            },
+        }];
+
+        let index = build_index(&notices);
+        storage.save_index(&index).await.unwrap();
+
+        let loaded = storage.load_index().await.unwrap().unwrap();
+        assert_eq!(loaded.notice_count, 1);
+        assert!(loaded.index.contains_key("장학금"));
+    }
+
+    #[tokio::test]
+    async fn test_circuit_breaker_custom_config() {
+        let tmp = TempDir::new().unwrap();
+        let config = CircuitBreakerConfig {
+            max_drop_percent: 10, // Stricter threshold
+            min_baseline: 5,
+            allow_cold_start: true,
+        };
+        let cb = CircuitBreaker::with_config(config);
+        let storage = LocalStorage::with_circuit_breaker(tmp.path(), cb);
+
+        // Storage should be created successfully
+        assert!(storage.path("test.txt").exists() == false);
     }
 }

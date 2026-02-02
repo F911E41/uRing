@@ -8,29 +8,24 @@ use futures::{StreamExt, stream};
 use reqwest::Client;
 
 use crate::error::Result;
-use crate::models::{Campus, Config, LocaleConfig, ManualReviewItem, Seed};
+use crate::models::{Campus, Config, ManualReviewItem};
 use crate::services::{BoardDiscoveryService, DepartmentCrawler, SelectorDetector};
 
 /// Maximum concurrency for board discovery.
 const CONCURRENCY_LIMIT: usize = 14;
 
 /// Run the mapper to discover departments and boards.
-pub async fn run_mapper(
-    config: &Config,
-    locale: &LocaleConfig,
-    seed: &Seed,
-    client: &Client,
-) -> Result<Vec<Campus>> {
-    log::info!("{}", locale.messages.mapper_starting);
+pub async fn run_mapper(config: &Config, client: &Client) -> Result<Vec<Campus>> {
+    log::info!("Mapper starting");
 
-    seed.validate()?;
-    log::info!("Loaded {} campuses from seed", seed.campuses.len());
+    config.validate()?;
+    log::info!("Loaded {} campuses from config", config.campuses.len());
 
     // Step 1: Departments Discovery
-    log::info!("[1/2] {}", locale.messages.mapper_step_departments);
+    log::info!("[1/2] Discovering departments");
 
     let dept_crawler = DepartmentCrawler::new(client);
-    let mut campuses = dept_crawler.crawl_all(&seed.campuses).await?;
+    let mut campuses = dept_crawler.crawl_all(&config.campuses).await?;
 
     if campuses.is_empty() {
         log::error!("No campuses discovered");
@@ -38,12 +33,12 @@ pub async fn run_mapper(
     }
 
     // Step 2: Boards Discovery (Parallel Processing)
-    log::info!("[2/2] {}", locale.messages.mapper_step_boards);
+    log::info!("[2/2] Discovering boards");
 
-    let selector_detector = SelectorDetector::new(seed.cms_patterns.clone());
+    let selector_detector = SelectorDetector::new(config.cms_patterns.clone());
     let board_service = Arc::new(BoardDiscoveryService::new(
         client,
-        seed.keywords.clone(),
+        config.keywords.clone(),
         selector_detector,
         &config.discovery,
     ));
@@ -60,21 +55,15 @@ pub async fn run_mapper(
                 .map(|mut dept| {
                     let service = Arc::clone(&board_service);
                     let campus_name = campus.campus.clone();
-                    let show_progress = config.logging.show_progress;
                     let dept_name = dept.name.clone();
 
                     async move {
-                        if show_progress {
-                            log::debug!("Scanning: {}", dept_name);
-                        }
+                        log::info!("Scanning: {}", dept_name);
 
                         let result = service.discover(&campus_name, &dept.name, &dept.url).await;
                         dept.boards = result.boards;
 
-                        if show_progress {
-                            log::debug!("Found {} boards for {}", dept.boards.len(), dept_name);
-                        }
-
+                        log::info!("Found {} boards for {}", dept.boards.len(), dept_name);
                         (dept, result.manual_review)
                     }
                 })

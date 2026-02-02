@@ -16,6 +16,7 @@ pub struct DepartmentCrawler<'a> {
     client: &'a Client,
 }
 
+/// Implementation of DepartmentCrawler
 impl<'a> DepartmentCrawler<'a> {
     /// Create a new department crawler.
     pub fn new(client: &'a Client) -> Self {

@@ -85,8 +85,24 @@ pub enum AppError {
         bytes: u64,
         max_bytes: u64,
     },
+
+    /// Circuit breaker triggered - data drop threshold exceeded
+    #[error(
+        "Circuit breaker triggered: {current_count} notices vs {previous_count} previous ({drop_percent:.1}% drop > {threshold_percent}% threshold)"
+    )]
+    CircuitBreakerTriggered {
+        current_count: usize,
+        previous_count: usize,
+        drop_percent: f64,
+        threshold_percent: u8,
+    },
+
+    /// Empty crawl result
+    #[error("Empty crawl result - no notices fetched")]
+    EmptyCrawlResult,
 }
 
+/// Helper methods for AppError
 impl AppError {
     /// Create a selector parsing error.
     pub fn selector(selector: impl Into<String>, message: impl fmt::Display) -> Self {

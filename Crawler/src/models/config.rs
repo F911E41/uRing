@@ -1,7 +1,7 @@
 //! Application configuration structures.
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
@@ -14,10 +14,6 @@ pub struct Config {
     #[serde(default)]
     pub crawler: CrawlerConfig,
 
-    /// File path settings
-    #[serde(default)]
-    pub paths: PathsConfig,
-
     /// Board discovery rules
     #[serde(default)]
     pub discovery: DiscoveryConfig,
@@ -26,13 +22,17 @@ pub struct Config {
     #[serde(default)]
     pub cleaning: CleaningConfig,
 
-    /// Output format settings
+    /// Campus definitions
     #[serde(default)]
-    pub output: OutputConfig,
+    pub campuses: Vec<CampusInfo>,
 
-    /// Logging settings
+    /// Board keyword to ID mappings
     #[serde(default)]
-    pub logging: LoggingConfig,
+    pub keywords: Vec<KeywordMapping>,
+
+    /// CMS detection patterns and selectors
+    #[serde(default)]
+    pub cms_patterns: Vec<CmsPattern>,
 }
 
 impl Config {
@@ -70,54 +70,18 @@ impl Config {
         if self.crawler.max_concurrent == 0 {
             return Err(AppError::validation("crawler.max_concurrent must be > 0"));
         }
-        if self.paths.output_dir.trim().is_empty() {
-            return Err(AppError::validation("paths.output_dir is empty"));
-        }
-        if self.paths.departments_file.trim().is_empty() {
-            return Err(AppError::validation("paths.departments_file is empty"));
-        }
-        if self.paths.departments_boards_file.trim().is_empty() {
-            return Err(AppError::validation(
-                "paths.departments_boards_file is empty",
-            ));
-        }
-        if self.paths.manual_review_file.trim().is_empty() {
-            return Err(AppError::validation("paths.manual_review_file is empty"));
-        }
         if self.discovery.max_board_name_length == 0 {
             return Err(AppError::validation(
                 "discovery.max_board_name_length must be > 0",
             ));
         }
+        if self.campuses.is_empty() {
+            return Err(AppError::validation("No campuses defined"));
+        }
+        if self.keywords.is_empty() {
+            return Err(AppError::validation("No keywords defined"));
+        }
         Ok(())
-    }
-
-    // Path helper methods
-
-    /// Get the full path to the output directory.
-    pub fn output_dir(&self, base: &Path) -> PathBuf {
-        base.join(&self.paths.output_dir)
-    }
-
-    /// Get the full path to the seed file.
-    pub fn seed_path(&self, base: &Path) -> PathBuf {
-        base.join(&self.paths.seed_file)
-    }
-
-    /// Get the full path to departments file.
-    pub fn departments_path(&self, base: &Path) -> PathBuf {
-        self.output_dir(base).join(&self.paths.departments_file)
-    }
-
-    /// Get the full path to departments with boards file.
-    pub fn departments_boards_path(&self, base: &Path) -> PathBuf {
-        self.output_dir(base)
-            .join(&self.paths.departments_boards_file)
-    }
-
-    /// Get the full path to manual review file.
-    pub fn manual_review_path(&self, base: &Path) -> PathBuf {
-        self.output_dir(base).join(&self.paths.manual_review_file)
     }
 }
 
@@ -125,11 +89,11 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             crawler: CrawlerConfig::default(),
-            paths: PathsConfig::default(),
             discovery: DiscoveryConfig::default(),
             cleaning: CleaningConfig::default(),
-            output: OutputConfig::default(),
-            logging: LoggingConfig::default(),
+            campuses: defaults::default_campuses(),
+            keywords: defaults::default_keywords(),
+            cms_patterns: defaults::default_cms_patterns(),
         }
     }
 }
@@ -166,42 +130,6 @@ impl Default for CrawlerConfig {
             sitemap_timeout_secs: defaults::sitemap_timeout(),
             request_delay_ms: defaults::request_delay(),
             max_concurrent: defaults::max_concurrent(),
-        }
-    }
-}
-
-/// File path configurations.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PathsConfig {
-    /// Path to seed file (relative to project root)
-    #[serde(default = "defaults::seed_file")]
-    pub seed_file: String,
-
-    /// Output directory path (relative to project root)
-    #[serde(default = "defaults::output_dir")]
-    pub output_dir: String,
-
-    /// Departments list filename
-    #[serde(default = "defaults::departments_file")]
-    pub departments_file: String,
-
-    /// Departments with boards filename
-    #[serde(default = "defaults::departments_boards_file")]
-    pub departments_boards_file: String,
-
-    /// Manual review items filename
-    #[serde(default = "defaults::manual_review_file")]
-    pub manual_review_file: String,
-}
-
-impl Default for PathsConfig {
-    fn default() -> Self {
-        Self {
-            seed_file: defaults::seed_file(),
-            output_dir: defaults::output_dir(),
-            departments_file: defaults::departments_file(),
-            departments_boards_file: defaults::departments_boards_file(),
-            manual_review_file: defaults::manual_review_file(),
         }
     }
 }
@@ -281,294 +209,6 @@ pub struct Replacement {
     pub to: String,
 }
 
-/// Output format settings.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OutputConfig {
-    /// Enable console output
-    #[serde(default)]
-    pub console_enabled: bool,
-}
-
-impl Default for OutputConfig {
-    fn default() -> Self {
-        Self {
-            console_enabled: false,
-        }
-    }
-}
-
-/// Logging settings.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LoggingConfig {
-    /// Log level (debug, info, warn, error)
-    #[serde(default = "defaults::log_level")]
-    pub level: String,
-
-    /// Show progress indicators
-    #[serde(default = "defaults::show_progress")]
-    pub show_progress: bool,
-}
-
-impl Default for LoggingConfig {
-    fn default() -> Self {
-        Self {
-            level: defaults::log_level(),
-            show_progress: defaults::show_progress(),
-        }
-    }
-}
-
-/// Internationalization/localization settings.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LocaleConfig {
-    /// UI messages
-    pub messages: Messages,
-
-    /// Error messages
-    #[serde(default)]
-    pub errors: Errors,
-}
-
-impl LocaleConfig {
-    /// Load locale from a TOML file.
-    pub fn load(path: impl AsRef<Path>) -> Result<Self> {
-        let content = fs::read_to_string(path)?;
-        Ok(toml::from_str(&content)?)
-    }
-
-    /// Load locale or return default if loading fails.
-    pub fn load_or_default(path: impl AsRef<Path>) -> Self {
-        Self::load(&path).unwrap_or_else(|e| {
-            log::warn!(
-                "Locale load failed from {:?}: {}. Using defaults.",
-                path.as_ref(),
-                e
-            );
-            Self::default()
-        })
-    }
-}
-
-impl Default for LocaleConfig {
-    fn default() -> Self {
-        Self {
-            messages: Messages::default(),
-            errors: Errors::default(),
-        }
-    }
-}
-
-/// UI message strings.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[allow(dead_code)]
-pub struct Messages {
-    // Startup messages
-    #[serde(default = "defaults::msg_app_starting")]
-    pub app_starting: String,
-    #[serde(default = "defaults::msg_app_finished")]
-    pub app_finished: String,
-
-    // Mapper messages
-    #[serde(default = "defaults::msg_mapper_starting")]
-    pub mapper_starting: String,
-    #[serde(default = "defaults::msg_mapper_loading_seed")]
-    pub mapper_loading_seed: String,
-    #[serde(default = "defaults::msg_mapper_loaded_campuses")]
-    pub mapper_loaded_campuses: String,
-    #[serde(default = "defaults::msg_mapper_validated")]
-    pub mapper_validated: String,
-    #[serde(default = "defaults::msg_mapper_step_departments")]
-    pub mapper_step_departments: String,
-    #[serde(default = "defaults::msg_mapper_step_boards")]
-    pub mapper_step_boards: String,
-    #[serde(default = "defaults::msg_mapper_campus")]
-    pub mapper_campus: String,
-    #[serde(default = "defaults::msg_mapper_dept_scanning")]
-    pub mapper_dept_scanning: String,
-    #[serde(default = "defaults::msg_mapper_dept_accessed")]
-    pub mapper_dept_accessed: String,
-    #[serde(default = "defaults::msg_mapper_dept_found_boards")]
-    pub mapper_dept_found_boards: String,
-    #[serde(default = "defaults::msg_mapper_sitemap_found")]
-    pub mapper_sitemap_found: String,
-    #[serde(default = "defaults::msg_mapper_sitemap_fallback")]
-    pub mapper_sitemap_fallback: String,
-    #[serde(default = "defaults::msg_mapper_complete")]
-    pub mapper_complete: String,
-    #[serde(default = "defaults::msg_mapper_manual_review")]
-    pub mapper_manual_review: String,
-
-    // Crawler messages
-    #[serde(default = "defaults::msg_starting")]
-    pub crawler_starting: String,
-    #[serde(default = "defaults::msg_crawler_loading_sitemap")]
-    pub crawler_loading_sitemap: String,
-    #[serde(default = "defaults::msg_loaded")]
-    pub loaded_departments: String,
-    #[serde(default = "defaults::msg_crawler_fetching")]
-    pub crawler_fetching: String,
-    #[serde(default = "defaults::msg_crawler_fetch_error")]
-    pub crawler_fetch_error: String,
-    #[serde(default = "defaults::msg_crawler_complete")]
-    pub crawler_complete: String,
-    #[serde(default = "defaults::msg_total")]
-    pub total_notices: String,
-    #[serde(default = "defaults::msg_saved")]
-    pub saved_notices: String,
-    #[serde(default = "defaults::msg_storage_saved")]
-    pub storage_saved: String,
-    #[serde(default = "defaults::msg_storage_paths_header")]
-    pub storage_paths_header: String,
-
-    // Archive messages
-    #[serde(default = "defaults::msg_archive_starting")]
-    pub archive_starting: String,
-    #[serde(default = "defaults::msg_archive_complete")]
-    pub archive_complete: String,
-    #[serde(default = "defaults::msg_archive_location")]
-    pub archive_location: String,
-    #[serde(default = "defaults::msg_archive_timestamp")]
-    pub archive_timestamp: String,
-
-    // Load messages
-    #[serde(default = "defaults::msg_load_new")]
-    pub load_new: String,
-    #[serde(default = "defaults::msg_load_archive")]
-    pub load_archive: String,
-    #[serde(default = "defaults::msg_load_complete")]
-    pub load_complete: String,
-    #[serde(default = "defaults::msg_load_notice_item")]
-    pub load_notice_item: String,
-
-    // Validate messages
-    #[serde(default = "defaults::msg_validate_starting")]
-    pub validate_starting: String,
-    #[serde(default = "defaults::msg_validate_config_success")]
-    pub validate_config_success: String,
-    #[serde(default = "defaults::msg_validate_seed_success")]
-    pub validate_seed_success: String,
-    #[serde(default = "defaults::msg_validate_user_agent")]
-    pub validate_user_agent: String,
-    #[serde(default = "defaults::msg_validate_timeout")]
-    pub validate_timeout: String,
-    #[serde(default = "defaults::msg_validate_max_concurrent")]
-    pub validate_max_concurrent: String,
-    #[serde(default = "defaults::msg_validate_campuses")]
-    pub validate_campuses: String,
-    #[serde(default = "defaults::msg_validate_keywords")]
-    pub validate_keywords: String,
-    #[serde(default = "defaults::msg_validate_patterns")]
-    pub validate_patterns: String,
-    #[serde(default = "defaults::msg_validate_failed")]
-    pub validate_failed: String,
-
-    // Pipeline messages
-    #[serde(default = "defaults::msg_pipeline_starting")]
-    pub pipeline_starting: String,
-    #[serde(default = "defaults::msg_pipeline_step")]
-    pub pipeline_step: String,
-    #[serde(default = "defaults::msg_pipeline_complete")]
-    pub pipeline_complete: String,
-
-    // Department crawler messages
-    #[serde(default = "defaults::msg_dept_crawling")]
-    pub dept_crawling: String,
-    #[serde(default = "defaults::msg_dept_found")]
-    pub dept_found: String,
-    #[serde(default = "defaults::msg_dept_failed")]
-    pub dept_failed: String,
-    #[serde(default = "defaults::msg_dept_no_content")]
-    pub dept_no_content: String,
-    #[serde(default = "defaults::msg_dept_no_homepage")]
-    pub dept_no_homepage: String,
-
-    // CMS detection messages
-    #[serde(default = "defaults::msg_cms_detected")]
-    pub cms_detected: String,
-
-    // Summary labels
-    #[serde(default = "defaults::msg_summary_total_depts")]
-    pub summary_total_depts: String,
-    #[serde(default = "defaults::msg_summary_total_boards")]
-    pub summary_total_boards: String,
-    #[serde(default = "defaults::msg_summary_manual_review")]
-    pub summary_manual_review: String,
-    #[serde(default = "defaults::msg_summary_notices")]
-    pub summary_notices: String,
-
-    // Separators
-    #[serde(default = "defaults::msg_separator")]
-    pub separator_line: String,
-    #[serde(default = "defaults::msg_separator_short")]
-    pub separator_short: String,
-}
-
-impl Default for Messages {
-    fn default() -> Self {
-        Self {
-            app_starting: defaults::msg_app_starting(),
-            app_finished: defaults::msg_app_finished(),
-            mapper_starting: defaults::msg_mapper_starting(),
-            mapper_loading_seed: defaults::msg_mapper_loading_seed(),
-            mapper_loaded_campuses: defaults::msg_mapper_loaded_campuses(),
-            mapper_validated: defaults::msg_mapper_validated(),
-            mapper_step_departments: defaults::msg_mapper_step_departments(),
-            mapper_step_boards: defaults::msg_mapper_step_boards(),
-            mapper_campus: defaults::msg_mapper_campus(),
-            mapper_dept_scanning: defaults::msg_mapper_dept_scanning(),
-            mapper_dept_accessed: defaults::msg_mapper_dept_accessed(),
-            mapper_dept_found_boards: defaults::msg_mapper_dept_found_boards(),
-            mapper_sitemap_found: defaults::msg_mapper_sitemap_found(),
-            mapper_sitemap_fallback: defaults::msg_mapper_sitemap_fallback(),
-            mapper_complete: defaults::msg_mapper_complete(),
-            mapper_manual_review: defaults::msg_mapper_manual_review(),
-            crawler_starting: defaults::msg_starting(),
-            crawler_loading_sitemap: defaults::msg_crawler_loading_sitemap(),
-            loaded_departments: defaults::msg_loaded(),
-            crawler_fetching: defaults::msg_crawler_fetching(),
-            crawler_fetch_error: defaults::msg_crawler_fetch_error(),
-            crawler_complete: defaults::msg_crawler_complete(),
-            total_notices: defaults::msg_total(),
-            saved_notices: defaults::msg_saved(),
-            storage_saved: defaults::msg_storage_saved(),
-            storage_paths_header: defaults::msg_storage_paths_header(),
-            archive_starting: defaults::msg_archive_starting(),
-            archive_complete: defaults::msg_archive_complete(),
-            archive_location: defaults::msg_archive_location(),
-            archive_timestamp: defaults::msg_archive_timestamp(),
-            load_new: defaults::msg_load_new(),
-            load_archive: defaults::msg_load_archive(),
-            load_complete: defaults::msg_load_complete(),
-            load_notice_item: defaults::msg_load_notice_item(),
-            validate_starting: defaults::msg_validate_starting(),
-            validate_config_success: defaults::msg_validate_config_success(),
-            validate_seed_success: defaults::msg_validate_seed_success(),
-            validate_user_agent: defaults::msg_validate_user_agent(),
-            validate_timeout: defaults::msg_validate_timeout(),
-            validate_max_concurrent: defaults::msg_validate_max_concurrent(),
-            validate_campuses: defaults::msg_validate_campuses(),
-            validate_keywords: defaults::msg_validate_keywords(),
-            validate_patterns: defaults::msg_validate_patterns(),
-            validate_failed: defaults::msg_validate_failed(),
-            pipeline_starting: defaults::msg_pipeline_starting(),
-            pipeline_step: defaults::msg_pipeline_step(),
-            pipeline_complete: defaults::msg_pipeline_complete(),
-            dept_crawling: defaults::msg_dept_crawling(),
-            dept_found: defaults::msg_dept_found(),
-            dept_failed: defaults::msg_dept_failed(),
-            dept_no_content: defaults::msg_dept_no_content(),
-            dept_no_homepage: defaults::msg_dept_no_homepage(),
-            cms_detected: defaults::msg_cms_detected(),
-            summary_total_depts: defaults::msg_summary_total_depts(),
-            summary_total_boards: defaults::msg_summary_total_boards(),
-            summary_manual_review: defaults::msg_summary_manual_review(),
-            summary_notices: defaults::msg_summary_notices(),
-            separator_line: defaults::msg_separator(),
-            separator_short: defaults::msg_separator_short(),
-        }
-    }
-}
-
 /// Error message strings.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[allow(dead_code)]
@@ -598,6 +238,8 @@ pub struct Errors {
 }
 
 mod defaults {
+    use super::{CampusInfo, CmsPattern, KeywordMapping};
+
     // Crawler defaults
     pub fn user_agent() -> String {
         "Mozilla/5.0 (compatible; uRing/1.0)".into()
@@ -615,23 +257,6 @@ mod defaults {
         5
     }
 
-    // Path defaults
-    pub fn seed_file() -> String {
-        "data/seed.toml".into()
-    }
-    pub fn output_dir() -> String {
-        "data/output".into()
-    }
-    pub fn manual_review_file() -> String {
-        "Temp/manual_review_needed.json".into()
-    }
-    pub fn departments_file() -> String {
-        "Temp/yonsei_departments.json".into()
-    }
-    pub fn departments_boards_file() -> String {
-        "siteMap.json".into()
-    }
-
     // Discovery defaults
     pub fn max_board_name_length() -> usize {
         20
@@ -647,213 +272,117 @@ mod defaults {
         ]
     }
 
-    // Output defaults
-
-    // Logging defaults
-    pub fn log_level() -> String {
-        "info".into()
-    }
-    pub fn show_progress() -> bool {
-        true
-    }
-
-    // Startup message defaults
-    pub fn msg_app_starting() -> String {
-        "uRing Crawler v1.0.0 starting".into()
-    }
-    pub fn msg_app_finished() -> String {
-        "uRing Crawler finished".into()
+    // Campus defaults
+    pub fn default_campuses() -> Vec<CampusInfo> {
+        vec![
+            CampusInfo {
+                name: "신촌캠퍼스".to_string(),
+                url: "https://www.yonsei.ac.kr/sc/186/subview.do".to_string(),
+            },
+            CampusInfo {
+                name: "미래캠퍼스".to_string(),
+                url: "https://mirae.yonsei.ac.kr/wj/1413/subview.do".to_string(),
+            },
+        ]
     }
 
-    // Mapper message defaults
-    pub fn msg_mapper_starting() -> String {
-        "Starting Mapper Mode".into()
-    }
-    pub fn msg_mapper_loading_seed() -> String {
-        "Loading seed data from {path}".into()
-    }
-    pub fn msg_mapper_loaded_campuses() -> String {
-        "Loaded {count} campuses".into()
-    }
-    pub fn msg_mapper_validated() -> String {
-        "Seed data validated successfully".into()
-    }
-    pub fn msg_mapper_step_departments() -> String {
-        "Crawling departments".into()
-    }
-    pub fn msg_mapper_step_boards() -> String {
-        "Discovering boards".into()
-    }
-    pub fn msg_mapper_campus() -> String {
-        "Processing campus: {name}".into()
-    }
-    pub fn msg_mapper_dept_scanning() -> String {
-        "Scanning {name}".into()
-    }
-    pub fn msg_mapper_dept_accessed() -> String {
-        "Accessed {url}".into()
-    }
-    pub fn msg_mapper_dept_found_boards() -> String {
-        "Found {count} board(s)".into()
-    }
-    pub fn msg_mapper_sitemap_found() -> String {
-        "Found sitemap: {url}".into()
-    }
-    pub fn msg_mapper_sitemap_fallback() -> String {
-        "Sitemap yielded no results, falling back to homepage".into()
-    }
-    pub fn msg_mapper_complete() -> String {
-        "Mapper complete! Data saved to {path}".into()
-    }
-    pub fn msg_mapper_manual_review() -> String {
-        "Saved {count} items needing manual review to {path}".into()
-    }
-
-    // Crawler message defaults
-    pub fn msg_starting() -> String {
-        "Starting Crawler Mode".into()
-    }
-    pub fn msg_crawler_loading_sitemap() -> String {
-        "Loading sitemap from {path}".into()
-    }
-    pub fn msg_loaded() -> String {
-        "Loaded {count_dept} department(s) with {count_board} board(s)".into()
-    }
-    pub fn msg_crawler_fetching() -> String {
-        "Fetching notices from boards".into()
-    }
-    pub fn msg_crawler_fetch_error() -> String {
-        "Error fetching {dept}/{board}: {error}".into()
-    }
-    pub fn msg_crawler_complete() -> String {
-        "Crawl complete".into()
-    }
-    pub fn msg_total() -> String {
-        "Total notices fetched: {count}".into()
-    }
-    pub fn msg_saved() -> String {
-        "Saved notices to {path}".into()
-    }
-    pub fn msg_storage_saved() -> String {
-        "Storage: {count} notices saved to {path}".into()
-    }
-    pub fn msg_storage_paths_header() -> String {
-        "S3 Storage Paths (events + snapshots)".into()
+    // Keyword defaults
+    pub fn default_keywords() -> Vec<KeywordMapping> {
+        vec![
+            KeywordMapping {
+                keyword: "학부공지".to_string(),
+                id: "academic".to_string(),
+                display_name: "학사공지".to_string(),
+            },
+            KeywordMapping {
+                keyword: "학사공지".to_string(),
+                id: "academic".to_string(),
+                display_name: "학사공지".to_string(),
+            },
+            KeywordMapping {
+                keyword: "대학원공지".to_string(),
+                id: "grad_notice".to_string(),
+                display_name: "대학원공지".to_string(),
+            },
+            KeywordMapping {
+                keyword: "장학".to_string(),
+                id: "scholarship".to_string(),
+                display_name: "장학공지".to_string(),
+            },
+            KeywordMapping {
+                keyword: "취업".to_string(),
+                id: "career".to_string(),
+                display_name: "취업/진로".to_string(),
+            },
+            KeywordMapping {
+                keyword: "공지사항".to_string(),
+                id: "notice".to_string(),
+                display_name: "일반공지".to_string(),
+            },
+            KeywordMapping {
+                keyword: "공지".to_string(),
+                id: "notice".to_string(),
+                display_name: "일반공지".to_string(),
+            },
+            KeywordMapping {
+                keyword: "진로".to_string(),
+                id: "career".to_string(),
+                display_name: "취업/진로".to_string(),
+            },
+            KeywordMapping {
+                keyword: "채용".to_string(),
+                id: "career".to_string(),
+                display_name: "채용정보".to_string(),
+            },
+            KeywordMapping {
+                keyword: "알림".to_string(),
+                id: "notice".to_string(),
+                display_name: "알림".to_string(),
+            },
+        ]
     }
 
-    // Archive message defaults
-    pub fn msg_archive_starting() -> String {
-        "Archiving notices".into()
-    }
-    pub fn msg_archive_complete() -> String {
-        "Archived {count} notices".into()
-    }
-    pub fn msg_archive_location() -> String {
-        "Location: {path}".into()
-    }
-    pub fn msg_archive_timestamp() -> String {
-        "Timestamp: {time}".into()
-    }
-
-    // Load message defaults
-    pub fn msg_load_new() -> String {
-        "Loading latest snapshot".into()
-    }
-    pub fn msg_load_archive() -> String {
-        "Loading event notices from {year}-{month}".into()
-    }
-    pub fn msg_load_complete() -> String {
-        "Loaded {count} notices".into()
-    }
-    pub fn msg_load_notice_item() -> String {
-        "{title} [{date}]".into()
-    }
-
-    // Validate message defaults
-    pub fn msg_validate_starting() -> String {
-        "Validating configuration and seed data".into()
-    }
-    pub fn msg_validate_config_success() -> String {
-        "Configuration loaded successfully".into()
-    }
-    pub fn msg_validate_seed_success() -> String {
-        "Seed data validated".into()
-    }
-    pub fn msg_validate_user_agent() -> String {
-        "User agent: {value}".into()
-    }
-    pub fn msg_validate_timeout() -> String {
-        "Timeout: {value}s".into()
-    }
-    pub fn msg_validate_max_concurrent() -> String {
-        "Max concurrent: {value}".into()
-    }
-    pub fn msg_validate_campuses() -> String {
-        "Campuses: {count}".into()
-    }
-    pub fn msg_validate_keywords() -> String {
-        "Keywords: {count}".into()
-    }
-    pub fn msg_validate_patterns() -> String {
-        "CMS patterns: {count}".into()
-    }
-    pub fn msg_validate_failed() -> String {
-        "Validation failed: {error}".into()
-    }
-
-    // Pipeline message defaults
-    pub fn msg_pipeline_starting() -> String {
-        "Starting Pipeline Mode".into()
-    }
-    pub fn msg_pipeline_step() -> String {
-        "Pipeline step {current}/{total}: {name}".into()
-    }
-    pub fn msg_pipeline_complete() -> String {
-        "Pipeline complete".into()
-    }
-
-    // Department crawler message defaults
-    pub fn msg_dept_crawling() -> String {
-        "Crawling {name}".into()
-    }
-    pub fn msg_dept_found() -> String {
-        "Found {count} departments".into()
-    }
-    pub fn msg_dept_failed() -> String {
-        "Failed to crawl {name}: {error}".into()
-    }
-    pub fn msg_dept_no_content() -> String {
-        "Cannot find main content area for {name}".into()
-    }
-    pub fn msg_dept_no_homepage() -> String {
-        "No homepage URL found for {name}".into()
-    }
-
-    // CMS detection message defaults
-    pub fn msg_cms_detected() -> String {
-        "Detected CMS pattern: {name} for URL: {url}".into()
-    }
-
-    // Summary label defaults
-    pub fn msg_summary_total_depts() -> String {
-        "Total Departments".into()
-    }
-    pub fn msg_summary_total_boards() -> String {
-        "Total Boards Found".into()
-    }
-    pub fn msg_summary_manual_review() -> String {
-        "Needs Manual Review".into()
-    }
-    pub fn msg_summary_notices() -> String {
-        "Notices Fetched".into()
-    }
-
-    // Separator defaults
-    pub fn msg_separator() -> String {
-        "═".into()
-    }
-    pub fn msg_separator_short() -> String {
-        "─".into()
+    // CMS pattern defaults
+    pub fn default_cms_patterns() -> Vec<CmsPattern> {
+        vec![
+            CmsPattern {
+                name: "yonsei_standard".to_string(),
+                detect_url_contains: Some(".do".to_string()),
+                detect_html_contains: Some("c-board-title".to_string()),
+                row_selector: "tr:has(a.c-board-title)".to_string(),
+                title_selector: "a.c-board-title".to_string(),
+                date_selector: "td:nth-last-child(1)".to_string(),
+                link_attr: "href".to_string(),
+            },
+            CmsPattern {
+                name: "nx_cms".to_string(),
+                detect_url_contains: None,
+                detect_html_contains: Some("yon_board".to_string()),
+                row_selector: "table.bl_list tr:has(td.td-subject)".to_string(),
+                title_selector: "td.td-subject a".to_string(),
+                date_selector: "td.td-date".to_string(),
+                link_attr: "href".to_string(),
+            },
+            CmsPattern {
+                name: "nx_cms_alt".to_string(),
+                detect_url_contains: None,
+                detect_html_contains: Some("NX CMS".to_string()),
+                row_selector: "table.bl_list tr:has(td.td-subject)".to_string(),
+                title_selector: "td.td-subject a".to_string(),
+                date_selector: "td.td-date".to_string(),
+                link_attr: "href".to_string(),
+            },
+            CmsPattern {
+                name: "xe_board".to_string(),
+                detect_url_contains: None,
+                detect_html_contains: Some("xe-list-board".to_string()),
+                row_selector: "li.xe-list-board-list--item:not(.xe-list-board-list--header)"
+                    .to_string(),
+                title_selector: "a.xe-list-board-list__title-link".to_string(),
+                date_selector: ".xe-list-board-list__created_at".to_string(),
+                link_attr: "href".to_string(),
+            },
+        ]
     }
 
     // Error defaults
@@ -914,4 +443,62 @@ mod tests {
         config.crawler.max_concurrent = 0;
         assert!(config.validate().is_err());
     }
+
+    #[test]
+    fn validate_accepts_valid_campuses_and_keywords() {
+        let config = Config::default();
+        assert!(config.validate().is_ok());
+        assert!(!config.campuses.is_empty());
+        assert!(!config.keywords.is_empty());
+    }
+}
+
+/// Campus information for initial discovery.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CampusInfo {
+    /// Campus name (e.g., "신촌캠퍼스")
+    pub name: String,
+
+    /// URL of the campus department listing page
+    pub url: String,
+}
+
+/// Mapping from board keyword to standardized ID.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KeywordMapping {
+    /// Keyword to search for in link text
+    pub keyword: String,
+
+    /// Standardized ID for the board type
+    pub id: String,
+
+    /// Human-readable display name
+    pub display_name: String,
+}
+
+/// CMS detection pattern with corresponding selectors.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CmsPattern {
+    /// Pattern name for identification
+    pub name: String,
+
+    /// URL substring to match
+    #[serde(default)]
+    pub detect_url_contains: Option<String>,
+
+    /// HTML content substring to match
+    #[serde(default)]
+    pub detect_html_contains: Option<String>,
+
+    /// CSS selector for notice rows
+    pub row_selector: String,
+
+    /// CSS selector for title element
+    pub title_selector: String,
+
+    /// CSS selector for date element
+    pub date_selector: String,
+
+    /// HTML attribute for link extraction
+    pub link_attr: String,
 }

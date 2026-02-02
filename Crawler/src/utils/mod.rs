@@ -1,4 +1,7 @@
 //! Utility functions and helpers.
+//!
+//! This module contains various utility functions for URL resolution, domain extraction,
+//! and notice ID extraction.
 
 pub mod http;
 

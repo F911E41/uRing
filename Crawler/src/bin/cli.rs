@@ -8,7 +8,7 @@ use std::sync::Arc;
 use clap::{Parser, Subcommand};
 use crawler::{
     error::Result,
-    models::{Campus, Config, LocaleConfig, Seed},
+    models::{Campus, Config},
     pipeline,
     storage::LocalStorage,
     utils::http,
@@ -85,12 +85,7 @@ async fn main() -> Result<()> {
 
     // Load configurations
     let config_path = cli.storage_dir.join("config.toml");
-    let locale_path = cli.storage_dir.join("locale.toml");
-    let seed_path = cli.storage_dir.join("seed.toml");
-
     let config = Config::load_or_default(&config_path);
-    let locale = LocaleConfig::load_or_default(&locale_path);
-    let seed = Seed::load(&seed_path)?;
 
     log::info!("Loaded configuration from {}", cli.storage_dir.display());
 
@@ -110,7 +105,7 @@ async fn main() -> Result<()> {
             }
 
             let client = http::create_client(&config.crawler)?;
-            let campuses = pipeline::run_mapper(&config, &locale, &seed, &client).await?;
+            let campuses = pipeline::run_mapper(&config, &client).await?;
 
             // Save sitemap
             let json = serde_json::to_string_pretty(&campuses)?;
@@ -143,8 +138,7 @@ async fn main() -> Result<()> {
             );
 
             let client = http::create_client(&config.crawler)?;
-            pipeline::run_crawler(Arc::clone(&config), &locale, &storage, &campuses, &client)
-                .await?;
+            pipeline::run_crawler(Arc::clone(&config), &storage, &campuses, &client).await?;
 
             log::info!("Crawl complete!");
         }
@@ -165,7 +159,7 @@ async fn main() -> Result<()> {
                 Campus::load_all(&sitemap_path)?
             } else {
                 log::info!("Step 1/2: Mapping departments and boards...");
-                let campuses = pipeline::run_mapper(&config, &locale, &seed, &client).await?;
+                let campuses = pipeline::run_mapper(&config, &client).await?;
                 let json = serde_json::to_string_pretty(&campuses)?;
                 std::fs::write(&sitemap_path, json)?;
                 log::info!("Sitemap saved to {}", sitemap_path.display());
@@ -174,8 +168,7 @@ async fn main() -> Result<()> {
 
             // Step 2: Crawl
             log::info!("Step 2/2: Crawling notices...");
-            pipeline::run_crawler(Arc::clone(&config), &locale, &storage, &campuses, &client)
-                .await?;
+            pipeline::run_crawler(Arc::clone(&config), &storage, &campuses, &client).await?;
 
             log::info!("Pipeline complete!");
         }
@@ -187,13 +180,7 @@ async fn main() -> Result<()> {
                 log::error!("Config validation failed: {}", e);
                 return Err(e);
             }
-            log::info!("✓ Config OK");
-
-            if let Err(e) = seed.validate() {
-                log::error!("Seed validation failed: {}", e);
-                return Err(e);
-            }
-            log::info!("✓ Seed OK");
+            log::info!("✓ Config OK (includes campuses, keywords, and CMS patterns)");
 
             log::info!("All validations passed!");
         }

@@ -97,6 +97,7 @@ regex = "1"
 sha2 = "0.10"
 hex = "0.4"
 log = "0.4"
+unicode-segmentation = "1.12"
 
 # AWS Serverless
 lambda_runtime = { version = "0.13", optional = true }

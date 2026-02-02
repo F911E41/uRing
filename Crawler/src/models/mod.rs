@@ -3,7 +3,7 @@
 //! This module contains all data structures used throughout the application,
 //! organized by their primary purpose.
 //!
-//! ## Storage Schema (README.md aligned)
+//! ## Storage Schema
 //!
 //! - Hot Data: `current.json` - Array of recent notices
 //! - Cold Data: `stacks/YYYY/MM.json` - Monthly archives
@@ -11,7 +11,6 @@
 mod campus;
 mod config;
 mod notice;
-mod seed;
 mod selectors;
 
 use chrono::{DateTime, Utc};
@@ -19,9 +18,8 @@ use serde::{Deserialize, Serialize};
 
 // Re-export all public types
 pub use campus::{Board, Campus, CampusMeta, College, Department, DepartmentRef};
-pub use config::{Config, CrawlerConfig, DiscoveryConfig, LocaleConfig};
+pub use config::{CampusInfo, CmsPattern, Config, CrawlerConfig, DiscoveryConfig, KeywordMapping};
 pub use notice::{Notice, NoticeMetadata, NoticeOutput};
-pub use seed::{CampusInfo, CmsPattern, KeywordMapping, Seed};
 pub use selectors::CmsSelectors;
 
 /// Statistics for a crawl session.

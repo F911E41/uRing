@@ -1,6 +1,6 @@
 //! Notice data structure.
 //!
-//! Aligned with README.md data schema for Hot/Cold storage pattern.
+//! Data schema for Hot/Cold storage pattern.
 
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
@@ -118,7 +118,7 @@ use chrono::Datelike;
 
 /// Metadata for a notice (nested in NoticeOutput).
 ///
-/// Matches README.md schema:
+/// Matches data schema:
 /// ```json
 /// "metadata": {
 ///   "campus": "신촌캠퍼스",
@@ -150,7 +150,7 @@ pub struct NoticeMetadata {
     pub pinned: bool,
 }
 
-/// Output format for JSON files (matches README.md schema).
+/// Output format for JSON files.
 ///
 /// ```json
 /// {
@@ -203,6 +203,19 @@ impl From<&Notice> for NoticeOutput {
 impl From<Notice> for NoticeOutput {
     fn from(notice: Notice) -> Self {
         Self::from(&notice)
+    }
+}
+
+impl NoticeOutput {
+    /// Get the year-month for archiving (YYYY, MM).
+    pub fn archive_period(&self) -> (i32, u32) {
+        if let Ok(date) = NaiveDate::parse_from_str(&self.metadata.date, "%Y-%m-%d") {
+            (date.year(), date.month())
+        } else {
+            // Fallback to current date
+            let now = chrono::Utc::now().naive_utc().date();
+            (now.year(), now.month())
+        }
     }
 }
 
